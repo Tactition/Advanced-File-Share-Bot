@@ -261,7 +261,7 @@ async def start(client, message):
         # Log that the deep link was used to request a file.
         media = getattr(msg, msg.media.value)
         title = formate_file_name(getattr(media, "file_name", ""))
-        await client.send_message(LOG_CHANNEL, f"Boss User {message.from_user.mention} requested file {title} with Id {msg.id} via deep link.")
+        await client.send_message(LOG_CHANNEL, f"Boss User {message.from_user.mention} requested file {title} with Id {msg.id} via deep link From Courses Bot.")
         if msg.media:
             # Capture the original caption if any.
             orig_caption = ""
