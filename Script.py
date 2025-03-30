@@ -6,7 +6,7 @@ class script(object):
 
     
     CAPTION = """╭─────────────────╮
-    █ 𝗔𝘂𝗱𝗶𝗼𝗕𝗼𝗼𝗸 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 █
+    █ File 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 █
 ╰─────────────────╯ 
 ╰─➩ <b>📂 ғɪʟᴇɴᴀᴍᴇ : {file_name} </b>
 ╰─➩ <b>📦 sɪᴢᴇ :  {file_size} </b>
@@ -49,7 +49,7 @@ If You Want To Remove Api Then Copy This And Send To Bot - `/api None`"""
 
 👥 sᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ: <a href=https://t.me/Excellerators_Discussion>Join Here</a>
 
-📢 Main ᴄʜᴀɴɴᴇʟ: <a href=https://t.me/Self_Improvement_AudioBooks>Excellerators</a></b>
+📢 Main ᴄʜᴀɴɴᴇʟ: <a href=https://t.me/ExcelleratorsEdge>Excellerators</a></b>
 """
 
 
@@ -121,7 +121,7 @@ ID - <code>{}</code>
 Nᴀᴍᴇ - {}</b>
 """
     RESTART_TXT = """
-<b>Courses Channel Rᴇsᴛᴀʀᴛᴇᴅ !
+<b>Courses Empire Rᴇsᴛᴀʀᴛᴇᴅ !
 
 📅 Dᴀᴛᴇ : <code>{}</code>
 ⏰ Tɪᴍᴇ : <code>{}</code>

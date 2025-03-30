@@ -36,7 +36,7 @@ loop = asyncio.get_event_loop()
 
 async def start():
     print('\n')
-    print('Initializing Advanced Audiobook File Share Bot...')
+    print('Initializing Advanced Course File Share Bot...')
     bot_info = await StreamBot.get_me()
     StreamBot.username = bot_info.username
     await initialize_clients()
