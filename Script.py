@@ -114,14 +114,14 @@ First Send /clone command then follow below steps.
 
 
 
-    LOG_TEXT = """<b> New User Added To Database 🔥
+    LOG_TEXT = """<b> New User Added To Courses Database 🔥
     
 ID - <code>{}</code>
 
 Nᴀᴍᴇ - {}</b>
 """
     RESTART_TXT = """
-<b>Empire Rᴇsᴛᴀʀᴛᴇᴅ !
+<b>Courses Channel Rᴇsᴛᴀʀᴛᴇᴅ !
 
 📅 Dᴀᴛᴇ : <code>{}</code>
 ⏰ Tɪᴍᴇ : <code>{}</code>
