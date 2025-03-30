@@ -45,7 +45,7 @@ DB_CHANNEL = int(environ.get("DB_CHANNEL", "-1002225127966"))
 
 # Bot uptime information and stats are shown reply add by tactition
 BOT_STATS_TEXT = "<b>BOT UPTIME</b>\n{uptime}"
-AUTH_CHANNEL = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('AUTH_CHANNEL', '-1002183158596 -1002183158596').split()]
+AUTH_CHANNEL = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('AUTH_CHANNEL', '-1002183158596 -1002587603849').split()]
 USER_REPLY_TEXT = "❌Don't send me messages! You Can't Use Me Unless You Have The Special Link To Access My Content."
 
 # Channel Information
