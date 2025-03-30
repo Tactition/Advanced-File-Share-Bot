@@ -30,7 +30,7 @@ CDB_NAME = environ.get("CDB_NAME", "")
 
 # Database Information
 DB_URI = environ.get("DB_URI", "mongodb+srv://ZahidNazir:ZahidNazir@1stcluster.1p0dlne.mongodb.net/?retryWrites=true&w=majority&appName=1stcluster")
-DB_NAME = environ.get("DB_NAME", "Audiobooks")
+DB_NAME = environ.get("DB_NAME", "Courses")
 
 # Auto Delete Information
 AUTO_DELETE_MODE = bool(environ.get('AUTO_DELETE_MODE', True)) # Set True or False
@@ -41,11 +41,11 @@ AUTO_DELETE_TIME = int(environ.get("AUTO_DELETE_TIME", "120")) # Time in Seconds
 
 # dedicated database channel's chat id for storing file data
 # Replace with your dedicated database channel's chat id
-DB_CHANNEL = int(environ.get("DB_CHANNEL", "-1002141494142"))
+DB_CHANNEL = int(environ.get("DB_CHANNEL", "-1002225127966"))
 
 # Bot uptime information and stats are shown reply add by tactition
 BOT_STATS_TEXT = "<b>BOT UPTIME</b>\n{uptime}"
-AUTH_CHANNEL = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('AUTH_CHANNEL', '-1002065254823').split()]
+AUTH_CHANNEL = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('AUTH_CHANNEL', '-1002183158596').split()]
 USER_REPLY_TEXT = "❌Don't send me messages! You Can't Use Me Unless You Have The Special Link To Access My Content."
 
 # Channel Information
