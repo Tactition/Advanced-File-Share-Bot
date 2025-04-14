@@ -27,6 +27,9 @@
 - **🔐 Token Verification** - Security enhancement for user verification
 - **📂 Database Channel Support** - Save content when links are generated
 - **📋 Logging Capabilities** - Track user requests and activities
+- **Daily Quote Broadcast at 7pm**
+- **Daily Articles Send to Public Channel Uses the grok Ai**
+- **downlaods the seekho Shorts by Link**
 
 [**Watch Deployment Tutorial**](https://youtu.be/VxAn9VcYtQg)
 
@@ -46,7 +49,9 @@
 | `CDB_URI` | MongoDB Database URL for Clone Bot | [Tutorial](https://youtu.be/I36_OTWvT2w) |
 | `ADMINS` | Admin/Owner ID for Broadcasting | - |
 | `LOG_CHANNEL` | Log channel ID starting with -100xxxxxx | - |
-| `BIN_CHANNEL` | Bin channel ID starting with -100xxxxxx | - |
+| `FILE_STORE_CHANNEL` | File Store Channel ID starting with -100xxxxxx | - |
+| `quotes chhannel ` | File Store Channel ID starting with -100xxxxxx | - |
+| `articles chhannel ` | File Store Channel ID starting with -100xxxxxx | - |
 | `FILE_STORE_CHANNEL` | File Store Channel ID starting with -100xxxxxx | - |
 | `FQDN` | Your Server App Link (without https://) | - |
 | `AUTO_DELETE` | Time in Minutes | - |
@@ -69,6 +74,11 @@
 - `/broadcast` - Send message to all users (Owner only)
 - `/stats` - Check bot statistics (Owner only)
 - `/users` - Count active users
+- `/stats` : By This Command You Can Check Your Bot Stats [Owner Only Command]
+- `/users` : how many are using the bot
+- `/article` - Generate long-form content
+- `/quote `- Get instant inspiration
+
 
 ### Clone Bot Commands
 
