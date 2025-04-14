@@ -7,7 +7,7 @@ from Script import script
 from plugins.dbusers import db
 from pyrogram import Client, filters, enums
 from plugins.users_api import get_user, update_user_info, get_short_link
-from pyrogram.errors import ChatAdminRequired, FloodWait, UserNotParticipant
+from pyrogram.errors import *
 from pyrogram.types import *
 from utils import verify_user, check_token, check_verification, get_token
 from config import *
@@ -16,8 +16,17 @@ import json
 import base64
 from urllib.parse import quote_plus
 from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
-from datetime import datetime
 
+from pytz import timezone  # Import pytz to handle India Time (Asia/Kolkata)
+from datetime import date, datetime, timedelta
+import time
+
+
+import subprocess
+import socket
+import ssl
+import urllib.parse
+import requests
 logger = logging.getLogger(__name__)
 
 BATCH_FILES = {}

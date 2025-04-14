@@ -27,7 +27,8 @@ class Database:
         return count
     
     async def get_all_users(self):
-        return self.col.find({})
+        return self.col.find({'name': {'$exists': True}})
+
 
     async def delete_user(self, user_id):
         await self.col.delete_many({'id': int(user_id)})
