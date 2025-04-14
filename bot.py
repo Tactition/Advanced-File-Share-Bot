@@ -74,7 +74,7 @@ async def start():
     schedule_daily_quotes(StreamBot)  
     schedule_daily_articles(StreamBot)
     
-    if CLONE_MODE:
+    if CLONE_MODE == True:
         await restart_bots()
     
     print("Bot Started Powered By @Tactiton")
