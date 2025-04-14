@@ -71,8 +71,8 @@ async def start():
     await web.TCPSite(app, bind_address, PORT).start()
     
     # Schedule daily quotes and articles
-    schedule_daily_quotes(StreamBot)  
-    schedule_daily_articles(StreamBot)
+    # schedule_daily_quotes(StreamBot)  
+    # schedule_daily_articles(StreamBot)
     
     if CLONE_MODE == True:
         await restart_bots()
