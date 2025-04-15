@@ -176,6 +176,41 @@ def schedule_facts(client: Client):
 
 # File to store sent question IDs
 
+import os
+import logging
+import random
+import asyncio
+import re
+import json
+import html
+import base64
+import time
+import socket
+import ssl
+import urllib.parse
+import requests
+from datetime import date, datetime, timedelta
+from pytz import timezone
+from bs4 import BeautifulSoup, Comment
+from pyrogram import Client, filters, enums
+from pyrogram.types import *
+from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
+
+# For asynchronous file operations
+import aiofiles
+import json
+from validators import domain
+from Script import script
+from plugins.dbusers import db
+from plugins.users_api import get_user, update_user_info, get_short_link
+from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
+from config import *
+import hashlib
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 SENT_TRIVIA_FILE = "sent_trivia.json"
 MAX_STORED_QUESTIONS = 300  # Keep last 300 question IDs
 
@@ -232,6 +267,8 @@ def fetch_trivia_poll() -> tuple:
         poll_question = decoded['question']
         poll_options = [decoded['correct']] + decoded['incorrect']
         random.shuffle(poll_options)
+        # Ensure all options are plain strings
+        poll_options = [str(option) for option in poll_options]
         
         # Generate unique ID for duplicate prevention
         qid = generate_question_id(decoded['question'])
