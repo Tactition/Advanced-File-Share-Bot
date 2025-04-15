@@ -315,8 +315,11 @@ async def send_scheduled_trivia(bot: Client):
 
 @Client.on_message(filters.command('trivia') & filters.user(ADMINS))
 async def instant_trivia_handler(client, message: Message):
+    processing_msg = None  # Initialize outside try block
     try:
+        # Edit original message first
         processing_msg = await message.reply("⏳ Generating trivia poll...")
+        
         sent_ids = await load_sent_trivia()
         question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
         
@@ -326,7 +329,8 @@ async def instant_trivia_handler(client, message: Message):
             question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
             retry += 1
         
-        await client.send_poll(
+        # Send poll and get Message object
+        poll_message = await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
             question=question,
             options=options,
@@ -340,17 +344,25 @@ async def instant_trivia_handler(client, message: Message):
         sent_ids.append(qid)
         await save_sent_trivia(sent_ids)
         
+        # Edit processing message with success
         await processing_msg.edit("✅ Trivia poll published!")
+        
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"📚 Manual trivia poll sent\nID: {qid}\nQuestion: {question[:50]}..."
+            text=f"📚 Manual trivia poll sent\nID: {qid}\nQuestion: {question[:50]}...\nPoll ID: {poll_message.id}"
         )
         
     except Exception as e:
-        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        error_msg = f"❌ Error: {str(e)[:200]}"
+        # Handle cases where processing_msg might not exist
+        if processing_msg:
+            await processing_msg.edit(error_msg)
+        else:
+            await message.reply(error_msg)
+        
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"⚠️ Trivia command failed: {str(e)[:500]}"
+            text=f"⚠️ Trivia command failed: {repr(e)}\nTraceback: {e.__traceback__}"
         )
 
 def schedule_trivia(client: Client):
