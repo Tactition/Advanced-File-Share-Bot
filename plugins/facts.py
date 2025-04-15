@@ -10,6 +10,7 @@ import time
 import socket
 import ssl
 import urllib.parse
+import html  # Python standard library
 import requests
 from datetime import date, datetime, timedelta
 from pytz import timezone
@@ -33,7 +34,6 @@ def fetch_daily_facts() -> str:
     """
     try:
         facts = set()
-        attempt = 0
         
         for _ in range(3):  # Get exactly 3 facts
             response = requests.get(
@@ -46,8 +46,8 @@ def fetch_daily_facts() -> str:
             
             # Directly use the text without HTML cleaning
             facts.add(fact_data['text'].strip())
-        
-        formatted_facts = [f"✦ {fact}" for fact in list(facts)]
+
+        formatted_facts = [f"✦ {fact}" for fact in list(facts)[:3]]
             
         return (
             "🧠 **Daily Knowledge Boost**\n\n"
@@ -57,7 +57,7 @@ def fetch_daily_facts() -> str:
         )
         
     except Exception as e:
-        logger.error(f"Fact API error: {e}")
+        logger.error(f"Fact API error: {str(e)}", exc_info=True)
         return (
             "💡 **Did You Know?**\n\n"
             "✦ The human brain generates about 20 watts of electricity\n"
