@@ -199,7 +199,7 @@ def generate_question_id(question_text: str) -> str:
 def fetch_trivia_question() -> tuple:
     """
     Fetches trivia question with answer options
-    Returns (formatted_question, question_id)
+    Returns (poll_question, poll_options, question_id)
     """
     try:
         response = requests.get(
@@ -229,38 +229,33 @@ def fetch_trivia_question() -> tuple:
             'difficulty': urllib.parse.unquote(question_data['difficulty'])
         }
         
-        # Shuffle answer options
+        # Prepare answer options and shuffle
         options = [decoded['correct']] + decoded['incorrect']
         random.shuffle(options)
         
-        # Format message
-        question_text = f"❓ **{decoded['question']}**\n\n"
-        question_text += f"*Category*: {decoded['category']}\n"
-        question_text += f"*Difficulty*: {decoded['difficulty'].title()}\n\n"
-        question_text += "**Options**:\n" + "\n".join(
-            [f"• {option}" for option in options]
+        # Prepare poll question (without the options text)
+        poll_question = (
+            f"❓ {decoded['question']}\n\n"
+            f"Category: {decoded['category']} | Difficulty: {decoded['difficulty'].title()}"
         )
-        question_text += "\n\n━━━━━━━━━━━━━━━━━━━\n"
-        question_text += "Reply with your answer! @Excellerators"
         
-        # Generate unique ID
+        # Generate unique question ID
         qid = generate_question_id(decoded['question'])
         
-        return question_text, qid
+        return poll_question, options, qid
         
     except Exception as e:
         logger.error(f"Trivia API error: {e}")
-        return (
-            "🧠 **Daily Trivia Challenge**\n\n"
+        fallback_question = (
+            "🧠 Daily Trivia Challenge\n\n"
             "❓ Which country is known as the Land of Rising Sun?\n\n"
-            "• China\n• Japan\n• India\n• Thailand\n\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            "Reply with your answer! @Excellerators",
-            f"fallback_{time.time()}"
+            "You can choose an option below."
         )
+        fallback_options = ["China", "Japan", "India", "Thailand"]
+        return fallback_question, fallback_options, f"fallback_{time.time()}"
 
 async def send_scheduled_trivia(bot: Client):
-    """Send scheduled trivia questions with duplicate prevention"""
+    """Send scheduled trivia questions as polls with duplicate prevention"""
     tz = timezone('Asia/Kolkata')
     
     while True:
@@ -281,25 +276,27 @@ async def send_scheduled_trivia(bot: Client):
 
         try:
             sent_ids = await load_sent_trivia()
-            question_text, qid = fetch_trivia_question()
+            poll_question, poll_options, qid = fetch_trivia_question()
             
             # Retry for unique question
             retry = 0
             while qid in sent_ids and retry < 5:
-                question_text, qid = fetch_trivia_question()
+                poll_question, poll_options, qid = fetch_trivia_question()
                 retry += 1
             
-            await bot.send_message(
+            # Send trivia as a Telegram poll
+            await bot.send_poll(
                 chat_id=TRIVIA_CHANNEL,
-                text=question_text,
-                disable_web_page_preview=True
+                question=poll_question,
+                options=poll_options,
+                disable_notification=False  # You can change as desired
             )
             sent_ids.append(qid)
             await save_sent_trivia(sent_ids)
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"❓ Trivia sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
+                text=f"❓ Trivia poll sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
             )
             
         except Exception as e:
@@ -308,28 +305,29 @@ async def send_scheduled_trivia(bot: Client):
 @Client.on_message(filters.command('trivia') & filters.user(ADMINS))
 async def instant_trivia_handler(client, message: Message):
     try:
-        processing_msg = await message.reply("⏳ Generating trivia question...")
+        processing_msg = await message.reply("⏳ Generating trivia poll...")
         sent_ids = await load_sent_trivia()
-        question_text, qid = fetch_trivia_question()
+        poll_question, poll_options, qid = fetch_trivia_question()
         
         # Retry for unique question
         retry = 0
         while qid in sent_ids and retry < 5:
-            question_text, qid = fetch_trivia_question()
+            poll_question, poll_options, qid = fetch_trivia_question()
             retry += 1
         
-        await client.send_message(
+        await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
-            text=question_text,
-            disable_web_page_preview=True
+            question=poll_question,
+            options=poll_options,
+            disable_notification=False
         )
         sent_ids.append(qid)
         await save_sent_trivia(sent_ids)
         
-        await processing_msg.edit("✅ Trivia published!")
+        await processing_msg.edit("✅ Trivia poll published!")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"📚 Manual trivia sent\nID: {qid}"
+            text=f"📚 Manual trivia poll sent\nID: {qid}"
         )
         
     except Exception as e:
