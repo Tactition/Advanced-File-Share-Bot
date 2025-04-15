@@ -29,29 +29,28 @@ logger.setLevel(logging.INFO)
 
 def fetch_daily_facts() -> str:
     """
-    Fetches 3 random facts from the Random Useless Facts API
-    (Simplified version without HTML cleaning)
+    Fetches 3 random facts from the API (no HTML cleaning required)
     """
     try:
         facts = set()
         
-        for _ in range(3):  # Get exactly 3 facts
+        for _ in range(3):
             response = requests.get(
-                "https://uselessfacts.jsph.pl/api/v2/facts/random", 
-                headers={'Accept': 'application/json'}, 
+                "https://uselessfacts.jsph.pl/api/v2/facts/random",
+                headers={'Accept': 'application/json'},
                 timeout=10
             )
             response.raise_for_status()
             fact_data = response.json()
             
-            # Directly use the text without HTML cleaning
+            # Directly use the text from API
             facts.add(fact_data['text'].strip())
 
         formatted_facts = [f"✦ {fact}" for fact in list(facts)[:3]]
             
         return (
             "🧠 **Daily Knowledge Boost**\n\n"
-            "\n\n".join(formatted_facts) + 
+            "\n\n".join(formatted_facts) +
             "\n\n━━━━━━━━━━━━━━━━━━━\n"
             "Stay Curious! @Excellerators"
         )
@@ -60,9 +59,9 @@ def fetch_daily_facts() -> str:
         logger.error(f"Fact API error: {str(e)}", exc_info=True)
         return (
             "💡 **Did You Know?**\n\n"
-            "✦ The human brain generates about 20 watts of electricity\n"
-            "✦ Honey never spoils - edible after 3000 years!\n"
-            "✦ Octopuses have three hearts\n\n"
+            "✦ Honey never spoils\n"
+            "✦ Octopuses have three hearts\n"
+            "✦ The Eiffel Tower grows in summer\n\n"
             "━━━━━━━━━━━━━━━━━━━\n"
             "Learn more @Excellerators"
         )
