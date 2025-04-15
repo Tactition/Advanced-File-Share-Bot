@@ -172,22 +172,7 @@ def schedule_facts(client: Client):
 
 
 
-    # --------------------------------------------------
-import os
-import logging
-import random
-import asyncio
-import re
-import json
-import html
-import hashlib
-import urllib.parse
-import requests
-from datetime import datetime, timedelta
-from pytz import timezone
-from pyrogram import Client, enums, filters
-from pyrogram.types import Message
-import aiofiles
+# --------------------------------------------------
 import builtins  # Import built-in namespace to ensure we reference the original list type
 
 # Configure logger
