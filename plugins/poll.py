@@ -5,7 +5,7 @@ import time
 import random
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, PollOption
 from config import ADMINS
 
 # Configure logger
@@ -61,8 +61,7 @@ async def send_poll_handler(client, message: Message):
         # If no arguments are provided, send the default mood poll
         if len(args) == 1:
             poll_data = poll_templates.get("mood", DEFAULT_POLLS["mood"])
-            await client.send_poll(
-                chat_id=message.chat.id,
+            await message.reply_poll(
                 question=poll_data["question"],
                 options=poll_data["options"],
                 is_anonymous=False,
@@ -73,8 +72,7 @@ async def send_poll_handler(client, message: Message):
         # If a template name is provided
         if len(args) >= 2 and args[1] in poll_templates:
             poll_data = poll_templates[args[1]]
-            await client.send_poll(
-                chat_id=message.chat.id,
+            await message.reply_poll(
                 question=poll_data["question"],
                 options=poll_data["options"],
                 is_anonymous=False,
@@ -98,8 +96,7 @@ async def send_poll_handler(client, message: Message):
                     await message.reply("❌ Maximum 10 options are allowed in a poll!")
                     return
                 
-                await client.send_poll(
-                    chat_id=message.chat.id,
+                await message.reply_poll(
                     question=question,
                     options=options,
                     is_anonymous=False,
