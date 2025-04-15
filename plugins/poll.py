@@ -5,7 +5,7 @@ import time
 import random
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message, PollOption
+from pyrogram.types import Message
 from config import ADMINS
 
 # Configure logger
@@ -61,22 +61,30 @@ async def send_poll_handler(client, message: Message):
         # If no arguments are provided, send the default mood poll
         if len(args) == 1:
             poll_data = poll_templates.get("mood", DEFAULT_POLLS["mood"])
-            await message.reply_poll(
-                question=poll_data["question"],
-                options=poll_data["options"],
-                is_anonymous=False,
-                allows_multiple_answers=False
+            await client.send(
+                "sendPoll",
+                {
+                    "chat_id": message.chat.id,
+                    "question": poll_data["question"],
+                    "options": json.dumps(poll_data["options"]),  # Convert options list to JSON string
+                    "is_anonymous": False,
+                    "allows_multiple_answers": False
+                }
             )
             return
             
         # If a template name is provided
         if len(args) >= 2 and args[1] in poll_templates:
             poll_data = poll_templates[args[1]]
-            await message.reply_poll(
-                question=poll_data["question"],
-                options=poll_data["options"],
-                is_anonymous=False,
-                allows_multiple_answers=False
+            await client.send(
+                "sendPoll",
+                {
+                    "chat_id": message.chat.id,
+                    "question": poll_data["question"],
+                    "options": json.dumps(poll_data["options"]),  # Convert options list to JSON string
+                    "is_anonymous": False,
+                    "allows_multiple_answers": False
+                }
             )
             return
             
@@ -96,15 +104,20 @@ async def send_poll_handler(client, message: Message):
                     await message.reply("❌ Maximum 10 options are allowed in a poll!")
                     return
                 
-                await message.reply_poll(
-                    question=question,
-                    options=options,
-                    is_anonymous=False,
-                    allows_multiple_answers=False
+                await client.send(
+                    "sendPoll",
+                    {
+                        "chat_id": message.chat.id,
+                        "question": question,
+                        "options": json.dumps(options),  # Convert options list to JSON string
+                        "is_anonymous": False,
+                        "allows_multiple_answers": False
+                    }
                 )
                 return
             except Exception as e:
                 logger.error(f"Error creating custom poll: {e}")
+                await message.reply(f"❌ Error creating poll: {str(e)}")
                 
         # If we reach here, show usage instructions
         await message.reply(
@@ -118,7 +131,7 @@ async def send_poll_handler(client, message: Message):
         
     except Exception as e:
         logger.exception(f"Poll command error: {e}")
-        await message.reply("❌ Error creating poll. Please try again later.")
+        await message.reply(f"❌ Error creating poll: {str(e)}")
 
 @Client.on_message(filters.command('addpoll') & filters.user(ADMINS))
 async def add_poll_template(client, message: Message):
