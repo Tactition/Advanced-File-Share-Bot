@@ -173,19 +173,34 @@ def schedule_facts(client: Client):
 
 
     # --------------------------------------------------
-
+import os
+import logging
+import random
+import asyncio
+import re
+import json
+import html
 import hashlib
+import urllib.parse
+import requests
+from datetime import datetime, timedelta
+from pytz import timezone
+from pyrogram import Client, enums, filters
+from pyrogram.types import Message
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # File to store sent question IDs
 SENT_TRIVIA_FILE = "sent_trivia.json"
-MAX_STORED_QUESTIONS = 300  # Keep last 300 question IDs
+MAX_STORED_QUESTIONS = 300
 
 async def load_sent_trivia() -> list:
     """Load sent question IDs from file"""
     try:
         async with aiofiles.open(SENT_TRIVIA_FILE, "r") as f:
-            content = await f.read()
-            return json.loads(content)
+            return json.loads(await f.read())
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
@@ -195,136 +210,108 @@ async def save_sent_trivia(question_ids: list):
         await f.write(json.dumps(question_ids[-MAX_STORED_QUESTIONS:]))
 
 def generate_question_id(question_text: str) -> str:
-    """Generate unique ID from question text"""
+    """Generate SHA256 hash from question text"""
     return hashlib.sha256(question_text.encode()).hexdigest()
 
 def fetch_trivia_question() -> tuple:
     """
-    Fetches trivia question with answer options for Telegram poll
-    Returns (question_text, options, correct_option_index, question_id)
+    Fetches and formats trivia question with answer options
+    Returns (question_text, options, correct_index, question_id)
     """
     try:
         response = requests.get(
             "https://opentdb.com/api.php",
-            params={
-                "amount": 1,
-                "category": 9,
-                "type": "multiple",
-                "encode": "url3986"
-            },
+            params={"amount": 1, "category": 9, "type": "multiple", "encode": "url3986"},
             timeout=15
         )
         response.raise_for_status()
         data = response.json()
-        
+
         # Validate API response structure
-        if not isinstance(data, dict):
-            raise ValueError("Invalid API response format")
-            
-        if data.get('response_code', 1) != 0:
-            raise ValueError(f"API Error Code: {data.get('response_code')}")
-            
+        if not isinstance(data, dict) or data.get('response_code', 1) != 0:
+            raise ValueError("Invalid API response")
+
         results = data.get('results', [])
-        if not isinstance(results, list) or len(results) == 0:
-            raise ValueError("Empty results from API")
-            
+        if not isinstance(results, list):
+            raise ValueError("Invalid results format")
+        if not results:
+            raise ValueError("Empty results")
+
         question_data = results[0]
         if not isinstance(question_data, dict):
-            raise ValueError("Invalid question data format")
-        
-        # Validate required fields exist
+            raise ValueError("Invalid question format")
+
+        # Validate required fields
         required_fields = ['question', 'correct_answer', 'incorrect_answers', 'category', 'difficulty']
         for field in required_fields:
             if field not in question_data:
                 raise ValueError(f"Missing field: {field}")
-        
-        # Double decoding for URL encoding and HTML entities
+
+        # Decode and sanitize content
         decoded = {
             'question': html.unescape(urllib.parse.unquote(question_data['question'])),
             'correct': html.unescape(urllib.parse.unquote(question_data['correct_answer'])),
-            'incorrect': [
-                html.unescape(urllib.parse.unquote(a)) 
-                for a in question_data['incorrect_answers']
-                if isinstance(a, str)
-            ],
+            'incorrect': [html.unescape(urllib.parse.unquote(a)) for a in question_data['incorrect_answers']],
             'category': html.unescape(urllib.parse.unquote(question_data['category'])),
             'difficulty': html.unescape(urllib.parse.unquote(question_data['difficulty']))
         }
-        
-        # Validate decoded content types
+
+        # Validate content types
         if not all(isinstance(v, str) for k, v in decoded.items() if k != 'incorrect'):
-            raise ValueError("Invalid content types in decoded data")
-            
+            raise ValueError("Invalid content types")
         if not all(isinstance(a, str) for a in decoded['incorrect']):
-            raise ValueError("Invalid answer options format")
-        
-        # Clean and prepare question text
-        clean_question = re.sub(r'\s+', ' ', decoded['question']).strip()
-        if not clean_question:
-            raise ValueError("Empty question text")
-        
-        # Prepare and shuffle options
+            raise ValueError("Invalid answer options")
+
+        # Prepare question and options
         options = decoded['incorrect'] + [decoded['correct']]
         random.shuffle(options)
-        
-        try:
-            correct_idx = options.index(decoded['correct'])
-        except ValueError:
-            raise ValueError("Correct answer not found in options")
-        
-        # Format question text with metadata
+        correct_idx = options.index(decoded['correct'])
+
+        # Format question text
+        clean_question = re.sub(r'\s+', ' ', decoded['question']).strip()
         question_text = (
             f"{clean_question}\n\n"
             f"Category: {decoded['category']}\n"
             f"Difficulty: {decoded['difficulty'].title()}"
         )
-        
-        # Generate unique ID from cleaned question text
-        qid = hashlib.sha256(clean_question.encode()).hexdigest()
-        
-        return question_text, options, correct_idx, qid
-        
+
+        return question_text, options, correct_idx, generate_question_id(clean_question)
+
     except Exception as e:
-        logger.error(f"Trivia API error: {str(e)}", exc_info=True)
-        # Fallback question with proper format
+        logger.error(f"Trivia error: {str(e)}", exc_info=True)
+        # Fallback question
         return (
             "Which country is known as the Land of Rising Sun?",
             ["China", "Thailand", "Japan", "India"],
-            2,  # Correct answer index
+            2,
             f"fallback_{time.time()}"
         )
 
 async def send_scheduled_trivia(bot: Client):
-    """Send scheduled trivia polls with duplicate prevention"""
+    """Sends trivia polls daily at scheduled times"""
     tz = timezone('Asia/Kolkata')
     
     while True:
         now = datetime.now(tz)
         target_times = [
-            now.replace(hour=9, minute=0, second=0, microsecond=0),
-            now.replace(hour=13, minute=0, second=0, microsecond=0),
-            now.replace(hour=17, minute=0, second=0, microsecond=0),
-            now.replace(hour=21, minute=0, second=0, microsecond=0)
+            now.replace(hour=h, minute=0, second=0, microsecond=0)
+            for h in [9, 13, 17, 21]
         ]
         
-        valid_times = [t for t in target_times if t > now]
-        next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
-        
-        sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next trivia poll at {next_time.strftime('%H:%M IST')}")
-        await asyncio.sleep(sleep_seconds)
+        next_time = min((t for t in target_times if t > now), default=target_times[0] + timedelta(days=1))
+        await asyncio.sleep((next_time - now).total_seconds())
 
         try:
             sent_ids = await load_sent_trivia()
             question_text, options, correct_idx, qid = fetch_trivia_question()
-            
-            # Retry for unique question
+
+            # Retry for unique questions
             retry = 0
             while qid in sent_ids and retry < 5:
                 question_text, options, correct_idx, qid = fetch_trivia_question()
                 retry += 1
-            
-            # Send as Telegram quiz poll (REMOVED DISABLE_WEB_PAGE_PREVIEW)
+
+            # Send as Telegram quiz poll
             poll = await bot.send_poll(
                 chat_id=TRIVIA_CHANNEL,
                 question=question_text,
@@ -332,20 +319,18 @@ async def send_scheduled_trivia(bot: Client):
                 type=enums.PollType.QUIZ,
                 correct_option_id=correct_idx,
                 is_anonymous=False,
-                explanation="Check pinned message for answers after voting!"
+                explanation="Check pinned message for answers!"
             )
-            
-            sent_ids.append(qid)
-            await save_sent_trivia(sent_ids)
-            
+
+            # Update sent IDs
+            await save_sent_trivia(sent_ids + [qid])
             await bot.send_message(
-                chat_id=LOG_CHANNEL,
-                text=f"📊 Poll sent at {datetime.now(tz).strftime('%H:%M IST')}\n"
-                     f"ID: {qid}\nPoll ID: {poll.poll.id}"
+                LOG_CHANNEL,
+                f"📊 Poll sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
             )
-            
+
         except Exception as e:
-            logger.exception("Trivia poll failed:")
+            logger.exception("Failed to send trivia poll:")
 
 @Client.on_message(filters.command('trivia') & filters.user(ADMINS))
 async def instant_trivia_handler(client, message: Message):
@@ -353,14 +338,14 @@ async def instant_trivia_handler(client, message: Message):
         processing_msg = await message.reply("⏳ Generating trivia poll...")
         sent_ids = await load_sent_trivia()
         question_text, options, correct_idx, qid = fetch_trivia_question()
-        
+
         # Retry for unique question
         retry = 0
         while qid in sent_ids and retry < 5:
             question_text, options, correct_idx, qid = fetch_trivia_question()
             retry += 1
-        
-        # REMOVED DISABLE_WEB_PAGE_PREVIEW HERE TOO
+
+        # Send poll
         poll = await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
             question=question_text,
@@ -368,25 +353,21 @@ async def instant_trivia_handler(client, message: Message):
             type=enums.PollType.QUIZ,
             correct_option_id=correct_idx,
             is_anonymous=False,
-            explanation="Check pinned message for answers later!"
-        )
-        
-        sent_ids.append(qid)
-        await save_sent_trivia(sent_ids)
-        
-        await processing_msg.edit("✅ Trivia poll published!")
-        await client.send_message(
-            chat_id=LOG_CHANNEL,
-            text=f"📊 Manual poll sent\nID: {qid}\nPoll ID: {poll.poll.id}"
-        )
-        
-    except Exception as e:
-        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
-        await client.send_message(
-            chat_id=LOG_CHANNEL,
-            text=f"⚠️ Trivia poll failed: {str(e)[:500]}"
+            explanation="Check pinned message for answers!"
         )
 
+        # Update sent IDs
+        await save_sent_trivia(sent_ids + [qid])
+        await processing_msg.edit("✅ Trivia published!")
+        await client.send_message(
+            LOG_CHANNEL,
+            f"📊 Manual poll sent\nID: {qid}"
+        )
+
+    except Exception as e:
+        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        logger.error(f"Manual trivia failed: {str(e)}")
+
 def schedule_trivia(client: Client):
-    """Starts the trivia scheduler"""
+    """Start the trivia scheduler"""
     asyncio.create_task(send_scheduled_trivia(client))
