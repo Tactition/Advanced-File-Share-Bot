@@ -165,7 +165,182 @@ async def instant_facts_handler(client, message: Message):
             text=f"⚠️ Fact command failed: {str(e)[:500]}"
         )
 
-        
+
 def schedule_facts(client: Client):
     """Starts the facts scheduler"""
     asyncio.create_task(send_scheduled_facts(client))
+
+
+
+    # --------------------------------------------------
+
+import hashlib
+
+# File to store sent question IDs
+SENT_TRIVIA_FILE = "sent_trivia.json"
+MAX_STORED_QUESTIONS = 300  # Keep last 300 question IDs
+
+async def load_sent_trivia() -> list:
+    """Load sent question IDs from file"""
+    try:
+        async with aiofiles.open(SENT_TRIVIA_FILE, "r") as f:
+            content = await f.read()
+            return json.loads(content)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+async def save_sent_trivia(question_ids: list):
+    """Save sent question IDs to file"""
+    async with aiofiles.open(SENT_TRIVIA_FILE, "w") as f:
+        await f.write(json.dumps(question_ids[-MAX_STORED_QUESTIONS:]))
+
+def generate_question_id(question_text: str) -> str:
+    """Generate unique ID from question text"""
+    return hashlib.sha256(question_text.encode()).hexdigest()
+
+def fetch_trivia_question() -> tuple:
+    """
+    Fetches trivia question with answer options
+    Returns (formatted_question, question_id)
+    """
+    try:
+        response = requests.get(
+            "https://opentdb.com/api.php",
+            params={
+                "amount": 1,
+                "category": 9,
+                "type": "multiple",
+                "encode": "url3986"
+            },
+            timeout=15
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        if data['response_code'] != 0 or not data['results']:
+            raise ValueError("No results from API")
+            
+        question_data = data['results'][0]
+        
+        # Decode URL-encoded components
+        decoded = {
+            'question': urllib.parse.unquote(question_data['question']),
+            'correct': urllib.parse.unquote(question_data['correct_answer']),
+            'incorrect': [urllib.parse.unquote(a) for a in question_data['incorrect_answers']],
+            'category': urllib.parse.unquote(question_data['category']),
+            'difficulty': urllib.parse.unquote(question_data['difficulty'])
+        }
+        
+        # Shuffle answer options
+        options = [decoded['correct']] + decoded['incorrect']
+        random.shuffle(options)
+        
+        # Format message
+        question_text = f"❓ **{decoded['question']}**\n\n"
+        question_text += f"*Category*: {decoded['category']}\n"
+        question_text += f"*Difficulty*: {decoded['difficulty'].title()}\n\n"
+        question_text += "**Options**:\n" + "\n".join(
+            [f"• {option}" for option in options]
+        )
+        question_text += "\n\n━━━━━━━━━━━━━━━━━━━\n"
+        question_text += "Reply with your answer! @Excellerators"
+        
+        # Generate unique ID
+        qid = generate_question_id(decoded['question'])
+        
+        return question_text, qid
+        
+    except Exception as e:
+        logger.error(f"Trivia API error: {e}")
+        return (
+            "🧠 **Daily Trivia Challenge**\n\n"
+            "❓ Which country is known as the Land of Rising Sun?\n\n"
+            "• China\n• Japan\n• India\n• Thailand\n\n"
+            "━━━━━━━━━━━━━━━━━━━\n"
+            "Reply with your answer! @Excellerators",
+            f"fallback_{time.time()}"
+        )
+
+async def send_scheduled_trivia(bot: Client):
+    """Send scheduled trivia questions with duplicate prevention"""
+    tz = timezone('Asia/Kolkata')
+    
+    while True:
+        now = datetime.now(tz)
+        target_times = [
+            now.replace(hour=9, minute=0, second=0, microsecond=0),
+            now.replace(hour=13, minute=0, second=0, microsecond=0),
+            now.replace(hour=17, minute=0, second=0, microsecond=0),
+            now.replace(hour=21, minute=0, second=0, microsecond=0)
+        ]
+        
+        valid_times = [t for t in target_times if t > now]
+        next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
+        
+        sleep_seconds = (next_time - now).total_seconds()
+        logger.info(f"Next trivia at {next_time.strftime('%H:%M IST')}")
+        await asyncio.sleep(sleep_seconds)
+
+        try:
+            sent_ids = await load_sent_trivia()
+            question_text, qid = fetch_trivia_question()
+            
+            # Retry for unique question
+            retry = 0
+            while qid in sent_ids and retry < 5:
+                question_text, qid = fetch_trivia_question()
+                retry += 1
+            
+            await bot.send_message(
+                chat_id=TRIVIA_CHANNEL,
+                text=question_text,
+                disable_web_page_preview=True
+            )
+            sent_ids.append(qid)
+            await save_sent_trivia(sent_ids)
+            
+            await bot.send_message(
+                chat_id=LOG_CHANNEL,
+                text=f"❓ Trivia sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
+            )
+            
+        except Exception as e:
+            logger.exception("Trivia broadcast failed:")
+
+@Client.on_message(filters.command('trivia') & filters.user(ADMINS))
+async def instant_trivia_handler(client, message: Message):
+    try:
+        processing_msg = await message.reply("⏳ Generating trivia question...")
+        sent_ids = await load_sent_trivia()
+        question_text, qid = fetch_trivia_question()
+        
+        # Retry for unique question
+        retry = 0
+        while qid in sent_ids and retry < 5:
+            question_text, qid = fetch_trivia_question()
+            retry += 1
+        
+        await client.send_message(
+            chat_id=TRIVIA_CHANNEL,
+            text=question_text,
+            disable_web_page_preview=True
+        )
+        sent_ids.append(qid)
+        await save_sent_trivia(sent_ids)
+        
+        await processing_msg.edit("✅ Trivia published!")
+        await client.send_message(
+            chat_id=LOG_CHANNEL,
+            text=f"📚 Manual trivia sent\nID: {qid}"
+        )
+        
+    except Exception as e:
+        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        await client.send_message(
+            chat_id=LOG_CHANNEL,
+            text=f"⚠️ Trivia command failed: {str(e)[:500]}"
+        )
+
+def schedule_trivia(client: Client):
+    """Starts the trivia scheduler"""
+    asyncio.create_task(send_scheduled_trivia(client))
