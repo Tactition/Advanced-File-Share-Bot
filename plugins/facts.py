@@ -22,6 +22,10 @@ from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, Peer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# =============================
+# DAILY FACTS FUNCTIONALITY
+# =============================
+
 def fetch_daily_facts() -> str:
     """
     Fetches 3 random facts from the Random Useless Facts API
