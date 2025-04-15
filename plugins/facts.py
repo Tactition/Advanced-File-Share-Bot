@@ -328,7 +328,7 @@ async def send_scheduled_trivia(bot: Client):
                 correct_option_id=correct_idx,
                 explanation=f"Category: {category}\nDifficulty: {difficulty.title()}"[:200],
                 explanation_parse_mode=enums.ParseMode.MARKDOWN,
-                close_date=datetime.now(IST) + timedelta(hours=24)
+                is_closed=False
             )
 
             # Update sent questions
@@ -379,7 +379,7 @@ async def manual_trivia(client: Client, message: Message):
             correct_option_id=correct_idx,
             explanation=f"Category: {category}\nDifficulty: {difficulty.title()}"[:200],
             explanation_parse_mode=enums.ParseMode.MARKDOWN,
-            close_date=datetime.now(IST) + timedelta(hours=24)
+            is_closed=False
         )
         
         # Update sent questions
