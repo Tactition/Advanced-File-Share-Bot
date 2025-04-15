@@ -306,6 +306,10 @@ async def send_scheduled_trivia(bot: Client):
 async def instant_trivia_handler(client, message: Message):
     try:
         processing_msg = await message.reply("⏳ Generating trivia poll...")
+        # If processing_msg is not a Message object (which would be unusual), send a new message instead.
+        if not hasattr(processing_msg, "edit"):
+            processing_msg = await client.send_message(message.chat.id, "⏳ Generating trivia poll...")
+            
         sent_ids = await load_sent_trivia()
         poll_question, poll_options, qid = fetch_trivia_question()
         
@@ -324,18 +328,27 @@ async def instant_trivia_handler(client, message: Message):
         sent_ids.append(qid)
         await save_sent_trivia(sent_ids)
         
-        await processing_msg.edit("✅ Trivia poll published!")
+        # Use .edit() if possible, otherwise send a new message
+        if hasattr(processing_msg, "edit"):
+            await processing_msg.edit("✅ Trivia poll published!")
+        else:
+            await client.send_message(message.chat.id, "✅ Trivia poll published!")
+            
         await client.send_message(
             chat_id=LOG_CHANNEL,
             text=f"📚 Manual trivia poll sent\nID: {qid}"
         )
         
     except Exception as e:
-        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        if hasattr(processing_msg, "edit"):
+            await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        else:
+            await client.send_message(message.chat.id, f"❌ Error: {str(e)[:200]}")
         await client.send_message(
             chat_id=LOG_CHANNEL,
             text=f"⚠️ Trivia command failed: {str(e)[:500]}"
         )
+
 
 def schedule_trivia(client: Client):
     """Starts the trivia scheduler"""
