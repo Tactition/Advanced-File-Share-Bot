@@ -61,71 +61,99 @@ async def send_poll_handler(client, message: Message):
         # If no arguments are provided, send the default mood poll
         if len(args) == 1:
             poll_data = poll_templates.get("mood", DEFAULT_POLLS["mood"])
-            await client.send(
-                "sendPoll",
-                {
-                    "chat_id": message.chat.id,
-                    "question": poll_data["question"],
-                    "options": json.dumps(poll_data["options"]),  # Convert options list to JSON string
-                    "is_anonymous": False,
-                    "allows_multiple_answers": False
-                }
-            )
-            return
             
-        # If a template name is provided
-        if len(args) >= 2 and args[1] in poll_templates:
-            poll_data = poll_templates[args[1]]
-            await client.send(
-                "sendPoll",
-                {
-                    "chat_id": message.chat.id,
-                    "question": poll_data["question"],
-                    "options": json.dumps(poll_data["options"]),  # Convert options list to JSON string
-                    "is_anonymous": False,
-                    "allows_multiple_answers": False
-                }
-            )
-            return
+            # Using bot.get_me() to check if initialized
+            me = await client.get_me()
+            logger.info(f"Bot username: {me.username}")
             
-        # Custom poll with format: /poll "Question" "Option1, Option2, Option3"
-        if len(args) == 3:
+            # Try sending with pyrogram's raw API
+            await message.reply("Creating mood poll...")
             try:
-                question = args[1].strip('"\'')
-                options_text = args[2].strip('"\'')
-                options = [opt.strip() for opt in options_text.split(',')]
-                
-                # Validate options
-                if len(options) < 2:
-                    await message.reply("❌ A poll needs at least 2 options!")
-                    return
-                    
-                if len(options) > 10:
-                    await message.reply("❌ Maximum 10 options are allowed in a poll!")
-                    return
-                
-                await client.send(
+                return await client._send_custom_request(
                     "sendPoll",
                     {
                         "chat_id": message.chat.id,
-                        "question": question,
-                        "options": json.dumps(options),  # Convert options list to JSON string
+                        "question": poll_data["question"],
+                        "options": poll_data["options"],  # No need to JSON encode
                         "is_anonymous": False,
                         "allows_multiple_answers": False
                     }
                 )
+            except AttributeError:
+                # If _send_custom_request doesn't exist, try this alternative
+                return await client.invoke(
+                    raw.functions.messages.SendMedia(
+                        peer=await client.resolve_peer(message.chat.id),
+                        media=raw.types.InputMediaPoll(
+                            poll=raw.types.Poll(
+                                id=random.randint(0, 2147483647),
+                                question=poll_data["question"],
+                                answers=[
+                                    raw.types.PollAnswer(text=option, option=bytes([i]))
+                                    for i, option in enumerate(poll_data["options"])
+                                ],
+                                closed=False,
+                                public_voters=True,
+                                multiple_choice=False,
+                                quiz=False
+                            )
+                        ),
+                        random_id=random.randint(0, 2147483647),
+                        message=""
+                    )
+                )
+            
+        # If a template name is provided
+        if len(args) >= 2 and args[1] in poll_templates:
+            poll_data = poll_templates[args[1]]
+            await message.reply(f"💭 Here's a poll about {args[1]}...")
+            
+            # Use a simpler approach - creating a poll via Telegram Bot API
+            # Most scripts have an HTTP client imported, or we can use the built-in one
+            import urllib.request
+            import urllib.parse
+            
+            # Get bot token
+            bot_token = os.environ.get("BOT_TOKEN", "")
+            if not bot_token:
+                # Try to get the token from the client if available
+                try:
+                    bot_token = client.bot_token
+                except:
+                    await message.reply("❌ Could not find bot token. Please set BOT_TOKEN in environment variables.")
+                    return
+            
+            # Create API URL
+            api_url = f"https://api.telegram.org/bot{bot_token}/sendPoll"
+            
+            # Prepare data
+            data = {
+                "chat_id": message.chat.id,
+                "question": poll_data["question"],
+                "options": json.dumps(poll_data["options"]),
+                "is_anonymous": False,
+                "allows_multiple_answers": False
+            }
+            
+            # Send request
+            data = urllib.parse.urlencode(data).encode()
+            req = urllib.request.Request(api_url, data=data)
+            try:
+                with urllib.request.urlopen(req) as response:
+                    response_data = response.read()
+                    logger.info(f"Poll response: {response_data}")
                 return
             except Exception as e:
-                logger.error(f"Error creating custom poll: {e}")
-                await message.reply(f"❌ Error creating poll: {str(e)}")
-                
-        # If we reach here, show usage instructions
+                logger.error(f"Error sending poll via HTTP: {e}")
+                await message.reply(f"❌ Failed to create poll. Try a different approach.")
+                return
+            
+        # Show usage instructions
         await message.reply(
             "📊 **Poll Command Usage**:\n\n"
             "• `/poll` - Send a mood poll\n"
             "• `/poll food` - Send food preference poll\n"
             "• `/poll weather` - Send weather preference poll\n"
-            "• `/poll \"Your question?\" \"Option1, Option2, Option3\"`\n\n"
             f"Available templates: {', '.join(poll_templates.keys())}"
         )
         
