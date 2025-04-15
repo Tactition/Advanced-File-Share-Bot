@@ -313,11 +313,12 @@ async def send_scheduled_trivia(bot: Client):
         except Exception as e:
             logger.exception("Trivia poll broadcast failed:")
 
+
 @Client.on_message(filters.command('trivia') & filters.user(ADMINS))
 async def instant_trivia_handler(client, message: Message):
-    processing_msg = None  # Initialize outside try block
+    processing_msg = None
     try:
-        # Edit original message first
+        # Create processing message first
         processing_msg = await message.reply("⏳ Generating trivia poll...")
         
         sent_ids = await load_sent_trivia()
@@ -329,8 +330,8 @@ async def instant_trivia_handler(client, message: Message):
             question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
             retry += 1
         
-        # Send poll and get Message object
-        poll_message = await client.send_poll(
+        # Send the poll and get Message object
+        poll_msg = await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
             question=question,
             options=options,
@@ -344,26 +345,41 @@ async def instant_trivia_handler(client, message: Message):
         sent_ids.append(qid)
         await save_sent_trivia(sent_ids)
         
-        # Edit processing message with success
+        # Edit processing message
         await processing_msg.edit("✅ Trivia poll published!")
         
+        # Send confirmation to log channel
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"📚 Manual trivia poll sent\nID: {qid}\nQuestion: {question[:50]}...\nPoll ID: {poll_message.id}"
+            text=(
+                f"📊 New Trivia Poll\n"
+                f"🆔 ID: {qid}\n"
+                f"📝 Question: {question[:100]}\n"
+                f"📊 Poll ID: {poll_msg.id}"
+            )
         )
         
     except Exception as e:
-        error_msg = f"❌ Error: {str(e)[:200]}"
-        # Handle cases where processing_msg might not exist
-        if processing_msg:
-            await processing_msg.edit(error_msg)
-        else:
-            await message.reply(error_msg)
+        error_text = f"❌ Error: {e.__class__.__name__} - {str(e)[:200]}"
         
+        # Edit processing message if exists
+        if processing_msg and isinstance(processing_msg, Message):
+            await processing_msg.edit(error_text)
+        else:
+            await message.reply(error_text)
+        
+        # Send detailed error to log
+        logger.exception("Trivia command error:")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"⚠️ Trivia command failed: {repr(e)}\nTraceback: {e.__traceback__}"
+            text=(
+                f"⚠️ Trivia Command Failed\n"
+                f"🕒 Time: {datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"🚨 Error: {repr(e)}\n"
+                f"📄 Traceback: {e.__traceback__}"
+            )
         )
+
 
 def schedule_trivia(client: Client):
     """Starts the trivia scheduler"""
