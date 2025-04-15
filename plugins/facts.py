@@ -32,9 +32,6 @@ from config import *
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# =============================
-# DAILY FACTS FUNCTIONALITY
-# =============================
 def fetch_daily_fact() -> str:
     """
     Fetches 1 random fact from the API (single fact version)
@@ -117,3 +114,7 @@ async def instant_facts_handler(client, message: Message):
         
     except Exception as e:
         await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+
+def schedule_facts(client: Client):
+    """Starts the facts scheduler"""
+    asyncio.create_task(send_scheduled_facts(client))
