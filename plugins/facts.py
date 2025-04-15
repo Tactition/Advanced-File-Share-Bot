@@ -29,7 +29,7 @@ logger.setLevel(logging.INFO)
 
 def fetch_daily_facts() -> str:
     """
-    Fetches 3 random facts from the API (no HTML cleaning required)
+    Fetches 3 random facts (fixed list conversion)
     """
     try:
         facts = set()
@@ -42,11 +42,10 @@ def fetch_daily_facts() -> str:
             )
             response.raise_for_status()
             fact_data = response.json()
-            
-            # Directly use the text from API
             facts.add(fact_data['text'].strip())
 
-        formatted_facts = [f"✦ {fact}" for fact in list(facts)[:3]]
+        # Explicitly use built-in list() function
+        formatted_facts = [f"✦ {fact}" for fact in __builtins__.list(facts)[:3]]
             
         return (
             "🧠 **Daily Knowledge Boost**\n\n"
@@ -65,6 +64,7 @@ def fetch_daily_facts() -> str:
             "━━━━━━━━━━━━━━━━━━━\n"
             "Learn more @Excellerators"
         )
+
 
 async def send_scheduled_facts(bot: Client):
     """
