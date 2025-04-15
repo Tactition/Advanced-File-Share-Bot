@@ -217,39 +217,76 @@ def fetch_trivia_question() -> tuple:
         response.raise_for_status()
         data = response.json()
         
-        if data['response_code'] != 0 or not data['results']:
-            raise ValueError("No results from API")
+        # Validate API response structure
+        if not isinstance(data, dict):
+            raise ValueError("Invalid API response format")
             
-        question_data = data['results'][0]
+        if data.get('response_code', 1) != 0:
+            raise ValueError(f"API Error Code: {data.get('response_code')}")
+            
+        results = data.get('results', [])
+        if not isinstance(results, list) or len(results) == 0:
+            raise ValueError("Empty results from API")
+            
+        question_data = results[0]
+        if not isinstance(question_data, dict):
+            raise ValueError("Invalid question data format")
         
-        # Decode HTML entities and URL encoding
+        # Validate required fields exist
+        required_fields = ['question', 'correct_answer', 'incorrect_answers', 'category', 'difficulty']
+        for field in required_fields:
+            if field not in question_data:
+                raise ValueError(f"Missing field: {field}")
+        
+        # Double decoding for URL encoding and HTML entities
         decoded = {
             'question': html.unescape(urllib.parse.unquote(question_data['question'])),
             'correct': html.unescape(urllib.parse.unquote(question_data['correct_answer'])),
-            'incorrect': [html.unescape(urllib.parse.unquote(a)) for a in question_data['incorrect_answers']],
+            'incorrect': [
+                html.unescape(urllib.parse.unquote(a)) 
+                for a in question_data['incorrect_answers']
+                if isinstance(a, str)
+            ],
             'category': html.unescape(urllib.parse.unquote(question_data['category'])),
             'difficulty': html.unescape(urllib.parse.unquote(question_data['difficulty']))
         }
         
+        # Validate decoded content types
+        if not all(isinstance(v, str) for k, v in decoded.items() if k != 'incorrect'):
+            raise ValueError("Invalid content types in decoded data")
+            
+        if not all(isinstance(a, str) for a in decoded['incorrect']):
+            raise ValueError("Invalid answer options format")
+        
+        # Clean and prepare question text
+        clean_question = re.sub(r'\s+', ' ', decoded['question']).strip()
+        if not clean_question:
+            raise ValueError("Empty question text")
+        
         # Prepare and shuffle options
         options = decoded['incorrect'] + [decoded['correct']]
         random.shuffle(options)
-        correct_idx = options.index(decoded['correct'])
+        
+        try:
+            correct_idx = options.index(decoded['correct'])
+        except ValueError:
+            raise ValueError("Correct answer not found in options")
         
         # Format question text with metadata
         question_text = (
-            f"{decoded['question']}\n\n"
+            f"{clean_question}\n\n"
             f"Category: {decoded['category']}\n"
             f"Difficulty: {decoded['difficulty'].title()}"
         )
         
-        qid = generate_question_id(decoded['question'])
+        # Generate unique ID from cleaned question text
+        qid = hashlib.sha256(clean_question.encode()).hexdigest()
         
         return question_text, options, correct_idx, qid
         
     except Exception as e:
-        logger.error(f"Trivia API error: {e}")
-        # Fallback question
+        logger.error(f"Trivia API error: {str(e)}", exc_info=True)
+        # Fallback question with proper format
         return (
             "Which country is known as the Land of Rising Sun?",
             ["China", "Thailand", "Japan", "India"],
