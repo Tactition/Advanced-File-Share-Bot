@@ -74,7 +74,7 @@ async def start():
     # Schedule daily quotes and articles
     # schedule_daily_quotes(StreamBot)  
     # schedule_daily_articles(StreamBot)
-    # schedule_facts(StreamBot) 
+    schedule_facts(StreamBot) 
 
     
     if CLONE_MODE == True:
