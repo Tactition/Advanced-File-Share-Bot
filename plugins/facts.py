@@ -176,43 +176,8 @@ def schedule_facts(client: Client):
 
 # File to store sent question IDs
 
-import os
-import logging
-import random
-import asyncio
-import re
-import json
-import html
-import base64
-import time
-import socket
-import ssl
-import urllib.parse
-import requests
-from datetime import date, datetime, timedelta
-from pytz import timezone
-from bs4 import BeautifulSoup, Comment
-from pyrogram import Client, filters, enums
-from pyrogram.types import *
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
-
-# For asynchronous file operations
-import aiofiles
-import json
-from validators import domain
-from Script import script
-from plugins.dbusers import db
-from plugins.users_api import get_user, update_user_info, get_short_link
-from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
-from config import *
-import hashlib
-
-# Configure logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 SENT_TRIVIA_FILE = "sent_trivia.json"
-MAX_STORED_QUESTIONS = 300  # Keep last 300 question IDs
+MAX_STORED_QUESTIONS = 300
 
 async def load_sent_trivia() -> list:
     """Load sent question IDs from file"""
@@ -232,10 +197,10 @@ def generate_question_id(question_text: str) -> str:
     """Generate unique ID from question text"""
     return hashlib.sha256(question_text.encode()).hexdigest()
 
-def fetch_trivia_poll() -> tuple:
+def fetch_trivia_question() -> tuple:
     """
-    Fetches trivia question with answer options for a Telegram poll.
-    Returns a tuple: (poll_question, poll_options, question_id)
+    Fetches trivia question and formats for Telegram poll
+    Returns (question, options, correct_option_index, category, difficulty, question_id)
     """
     try:
         response = requests.get(
@@ -260,30 +225,40 @@ def fetch_trivia_poll() -> tuple:
         decoded = {
             'question': urllib.parse.unquote(question_data['question']),
             'correct': urllib.parse.unquote(question_data['correct_answer']),
-            'incorrect': [urllib.parse.unquote(a) for a in question_data['incorrect_answers']]
+            'incorrect': [urllib.parse.unquote(a) for a in question_data['incorrect_answers']],
+            'category': urllib.parse.unquote(question_data['category']),
+            'difficulty': urllib.parse.unquote(question_data['difficulty'])
         }
         
-        # Prepare poll question and options
-        poll_question = decoded['question']
-        poll_options = [decoded['correct']] + decoded['incorrect']
-        random.shuffle(poll_options)
-        # Ensure all options are plain strings
-        poll_options = [str(option) for option in poll_options]
+        # Shuffle options while tracking correct answer
+        options = decoded['incorrect'] + [decoded['correct']]
+        random.shuffle(options)
+        correct_idx = options.index(decoded['correct'])
         
-        # Generate unique ID for duplicate prevention
+        # Generate unique ID from original question
         qid = generate_question_id(decoded['question'])
         
-        return poll_question, poll_options, qid
+        # Truncate to Telegram's limits
+        question = decoded['question'][:300]  # Max 300 characters for question
+        options = [o[:100] for o in options]  # Max 100 chars per option
+        
+        return (question, options, correct_idx, 
+                decoded['category'], decoded['difficulty'], qid)
         
     except Exception as e:
         logger.error(f"Trivia API error: {e}")
-        # Fallback poll in case of error
-        poll_question = "Which country is known as the Land of Rising Sun?"
-        poll_options = ["China", "Japan", "India", "Thailand"]
-        return poll_question, poll_options, f"fallback_{time.time()}"
+        # Fallback question
+        return (
+            "Which country is known as the Land of Rising Sun?",
+            ["China", "Japan", "India", "Thailand"],
+            1,  # Japan is correct
+            "General Knowledge",
+            "Easy",
+            f"fallback_{time.time()}"
+        )
 
 async def send_scheduled_trivia(bot: Client):
-    """Send scheduled trivia polls with duplicate prevention via Telegram polls."""
+    """Send scheduled trivia polls with duplicate prevention"""
     tz = timezone('Asia/Kolkata')
     
     while True:
@@ -299,33 +274,40 @@ async def send_scheduled_trivia(bot: Client):
         next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
         
         sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next trivia poll at {next_time.strftime('%H:%M IST')}")
+        logger.info(f"Next trivia at {next_time.strftime('%H:%M IST')}")
         await asyncio.sleep(sleep_seconds)
 
         try:
             sent_ids = await load_sent_trivia()
-            poll_question, poll_options, qid = fetch_trivia_poll()
+            question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
             
             # Retry for unique question
             retry = 0
             while qid in sent_ids and retry < 5:
-                poll_question, poll_options, qid = fetch_trivia_poll()
+                question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
                 retry += 1
             
-            # Send the poll using bot.send_poll
-            message = await bot.send_poll(
+            # Send as Telegram poll
+            poll = await bot.send_poll(
                 chat_id=TRIVIA_CHANNEL,
-                question=poll_question,
-                options=poll_options,
+                question=question,
+                options=options,
                 is_anonymous=False,
-                allows_multiple_answers=False  # Set to True if needed
+                type=enums.PollType.QUIZ,
+                correct_option_id=correct_idx,
+                explanation=f"Category: {category}\nDifficulty: {difficulty.title()}",
+                explanation_parse_mode=enums.ParseMode.MARKDOWN
             )
+            
             sent_ids.append(qid)
             await save_sent_trivia(sent_ids)
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"❓ Trivia poll sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
+                text=f"❓ Trivia poll sent at {datetime.now(tz).strftime('%H:%M IST')}\n"
+                     f"ID: {qid}\n"
+                     f"Poll ID: {poll.id}\n"
+                     f"Question: {question[:50]}..."
             )
             
         except Exception as e:
@@ -333,42 +315,44 @@ async def send_scheduled_trivia(bot: Client):
 
 @Client.on_message(filters.command('trivia') & filters.user(ADMINS))
 async def instant_trivia_handler(client, message: Message):
-    """Sends a trivia poll immediately on admin command."""
     try:
         processing_msg = await message.reply("⏳ Generating trivia poll...")
         sent_ids = await load_sent_trivia()
-        poll_question, poll_options, qid = fetch_trivia_poll()
+        question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
         
-        # Retry for a unique poll if necessary
+        # Retry for unique question
         retry = 0
         while qid in sent_ids and retry < 5:
-            poll_question, poll_options, qid = fetch_trivia_poll()
+            question, options, correct_idx, category, difficulty, qid = fetch_trivia_question()
             retry += 1
         
-        # Send the trivia poll
-        poll_message = await client.send_poll(
+        await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
-            question=poll_question,
-            options=poll_options,
+            question=question,
+            options=options,
             is_anonymous=False,
-            allows_multiple_answers=False
+            type=enums.PollType.QUIZ,
+            correct_option_id=correct_idx,
+            explanation=f"Category: {category}\nDifficulty: {difficulty.title()}",
+            explanation_parse_mode=enums.ParseMode.MARKDOWN
         )
+        
         sent_ids.append(qid)
         await save_sent_trivia(sent_ids)
         
         await processing_msg.edit("✅ Trivia poll published!")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"📚 Manual trivia poll sent\nID: {qid}"
+            text=f"📚 Manual trivia poll sent\nID: {qid}\nQuestion: {question[:50]}..."
         )
         
     except Exception as e:
         await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"⚠️ Trivia poll command failed: {str(e)[:500]}"
+            text=f"⚠️ Trivia command failed: {str(e)[:500]}"
         )
 
 def schedule_trivia(client: Client):
-    """Starts the trivia scheduler."""
+    """Starts the trivia scheduler"""
     asyncio.create_task(send_scheduled_trivia(client))
