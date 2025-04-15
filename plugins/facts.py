@@ -26,7 +26,6 @@ logger.setLevel(logging.INFO)
 # =============================
 # DAILY FACTS FUNCTIONALITY
 # =============================
-
 def fetch_daily_facts() -> str:
     """
     Fetches 3 random facts (fixed list conversion)
@@ -64,8 +63,8 @@ def fetch_daily_facts() -> str:
             "━━━━━━━━━━━━━━━━━━━\n"
             "Learn more @Excellerators"
         )
-
-
+    
+    
 async def send_scheduled_facts(bot: Client):
     """
     Sends facts daily at 8 AM, 1 PM, and 8 PM IST
