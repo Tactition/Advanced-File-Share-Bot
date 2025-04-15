@@ -287,7 +287,7 @@ async def send_scheduled_trivia(bot: Client):
                 question_text, options, correct_idx, qid = fetch_trivia_question()
                 retry += 1
             
-            # Send as Telegram quiz poll
+            # Send as Telegram quiz poll (REMOVED DISABLE_WEB_PAGE_PREVIEW)
             poll = await bot.send_poll(
                 chat_id=TRIVIA_CHANNEL,
                 question=question_text,
@@ -295,8 +295,7 @@ async def send_scheduled_trivia(bot: Client):
                 type=enums.PollType.QUIZ,
                 correct_option_id=correct_idx,
                 is_anonymous=False,
-                explanation="Check pinned message for answers after voting!",
-                disable_web_page_preview=True
+                explanation="Check pinned message for answers after voting!"
             )
             
             sent_ids.append(qid)
@@ -324,6 +323,7 @@ async def instant_trivia_handler(client, message: Message):
             question_text, options, correct_idx, qid = fetch_trivia_question()
             retry += 1
         
+        # REMOVED DISABLE_WEB_PAGE_PREVIEW HERE TOO
         poll = await client.send_poll(
             chat_id=TRIVIA_CHANNEL,
             question=question_text,
@@ -331,8 +331,7 @@ async def instant_trivia_handler(client, message: Message):
             type=enums.PollType.QUIZ,
             correct_option_id=correct_idx,
             is_anonymous=False,
-            explanation="Check pinned message for answers later!",
-            disable_web_page_preview=True
+            explanation="Check pinned message for answers later!"
         )
         
         sent_ids.append(qid)
