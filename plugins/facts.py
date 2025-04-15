@@ -173,7 +173,7 @@ def schedule_facts(client: Client):
 
 
     # --------------------------------------------------
-import os
+iimport os
 import logging
 import random
 import asyncio
@@ -187,6 +187,8 @@ from datetime import datetime, timedelta
 from pytz import timezone
 from pyrogram import Client, enums, filters
 from pyrogram.types import Message
+import aiofiles
+import builtins  # Import built-in namespace to ensure we reference the original list type
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -232,7 +234,8 @@ def fetch_trivia_question() -> tuple:
             raise ValueError("Invalid API response")
 
         results = data.get('results', [])
-        if not isinstance(results, list):
+        # Use builtins.list to guarantee we're referring to the correct type
+        if not isinstance(results, builtins.list):
             raise ValueError("Invalid results format")
         if not results:
             raise ValueError("Empty results")
@@ -284,7 +287,7 @@ def fetch_trivia_question() -> tuple:
             "Which country is known as the Land of Rising Sun?",
             ["China", "Thailand", "Japan", "India"],
             2,
-            f"fallback_{time.time()}"
+            f"fallback_{datetime.now().timestamp()}"
         )
 
 async def send_scheduled_trivia(bot: Client):
@@ -325,8 +328,8 @@ async def send_scheduled_trivia(bot: Client):
             # Update sent IDs
             await save_sent_trivia(sent_ids + [qid])
             await bot.send_message(
-                LOG_CHANNEL,
-                f"📊 Poll sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
+                chat_id=LOG_CHANNEL,
+                text=f"📊 Poll sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {qid}"
             )
 
         except Exception as e:
@@ -336,6 +339,7 @@ async def send_scheduled_trivia(bot: Client):
 async def instant_trivia_handler(client, message: Message):
     try:
         processing_msg = await message.reply("⏳ Generating trivia poll...")
+        logger.info(f"Processing message type: {type(processing_msg)}")  # Debug log to verify type
         sent_ids = await load_sent_trivia()
         question_text, options, correct_idx, qid = fetch_trivia_question()
 
@@ -358,14 +362,15 @@ async def instant_trivia_handler(client, message: Message):
 
         # Update sent IDs
         await save_sent_trivia(sent_ids + [qid])
-        await processing_msg.edit("✅ Trivia published!")
+        # Instead of editing in case processing_msg is not a Message object, send a new message
+        await client.send_message(message.chat.id, "✅ Trivia published!")
         await client.send_message(
             LOG_CHANNEL,
-            f"📊 Manual poll sent\nID: {qid}"
+            text=f"📊 Manual poll sent\nID: {qid}"
         )
 
     except Exception as e:
-        await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
+        await client.send_message(message.chat.id, f"❌ Error: {str(e)[:200]}")
         logger.error(f"Manual trivia failed: {str(e)}")
 
 def schedule_trivia(client: Client):
