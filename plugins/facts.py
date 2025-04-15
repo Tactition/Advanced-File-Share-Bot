@@ -374,7 +374,7 @@ async def manual_trivia(client: Client, message: Message):
             chat_id=TRIVIA_CHANNEL,
             question=question,
             options=options,
-            is_anonymous=False,
+            is_anonymous=True,
             type=enums.PollType.QUIZ,
             correct_option_id=correct_idx,
             explanation=f"Category: {category}\nDifficulty: {difficulty.title()}"[:200],
