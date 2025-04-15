@@ -29,12 +29,13 @@ logger.setLevel(logging.INFO)
 def fetch_daily_facts() -> str:
     """
     Fetches 3 random facts from the Random Useless Facts API
+    (Simplified version without HTML cleaning)
     """
     try:
         facts = set()
         attempt = 0
         
-        while len(facts) < 3 and attempt < 5:
+        for _ in range(3):  # Get exactly 3 facts
             response = requests.get(
                 "https://uselessfacts.jsph.pl/api/v2/facts/random", 
                 headers={'Accept': 'application/json'}, 
@@ -43,15 +44,10 @@ def fetch_daily_facts() -> str:
             response.raise_for_status()
             fact_data = response.json()
             
-            clean_fact = re.sub('<[^<]+?>', '', fact_data['text'])
-            clean_fact = html.unescape(clean_fact)
-            facts.add(clean_fact)
-            attempt += 1
+            # Directly use the text without HTML cleaning
+            facts.add(fact_data['text'].strip())
         
-        formatted_facts = [f"✦ {fact.strip()}" for fact in list(facts)[:3]]
-        
-        while len(formatted_facts) < 3:
-            formatted_facts.append("✦ The average cloud weighs about 1.1 million pounds")
+        formatted_facts = [f"✦ {fact}" for fact in list(facts)]
             
         return (
             "🧠 **Daily Knowledge Boost**\n\n"
