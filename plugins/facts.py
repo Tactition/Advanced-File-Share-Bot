@@ -10,14 +10,23 @@ import time
 import socket
 import ssl
 import urllib.parse
-import html  # Python standard library
 import requests
 from datetime import date, datetime, timedelta
 from pytz import timezone
+from bs4 import BeautifulSoup, Comment
 from pyrogram import Client, filters, enums
 from pyrogram.types import *
-from config import *
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
+
+# For asynchronous file operations
+import aiofiles
+
+from validators import domain
+from Script import script
+from plugins.dbusers import db
+from plugins.users_api import get_user, update_user_info, get_short_link
+from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
+from config import *
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -26,48 +35,42 @@ logger.setLevel(logging.INFO)
 # =============================
 # DAILY FACTS FUNCTIONALITY
 # =============================
-def fetch_daily_facts() -> str:
+def fetch_daily_fact() -> str:
     """
-    Fetches 3 random facts (fixed list conversion)
+    Fetches 1 random fact from the API (single fact version)
     """
     try:
-        facts = set()
+        response = requests.get(
+            "https://uselessfacts.jsph.pl/api/v2/facts/random",
+            headers={'Accept': 'application/json'},
+            timeout=10
+        )
+        response.raise_for_status()
+        fact_data = response.json()
         
-        for _ in range(3):
-            response = requests.get(
-                "https://uselessfacts.jsph.pl/api/v2/facts/random",
-                headers={'Accept': 'application/json'},
-                timeout=10
-            )
-            response.raise_for_status()
-            fact_data = response.json()
-            facts.add(fact_data['text'].strip())
-
-        # Explicitly use built-in list() function
-        formatted_facts = [f"✦ {fact}" for fact in __builtins__.list(facts)[:3]]
+        # Directly use the text from API response
+        fact = f"✦ {fact_data['text'].strip()}"
             
         return (
             "🧠 **Daily Knowledge Boost**\n\n"
-            "\n\n".join(formatted_facts) +
-            "\n\n━━━━━━━━━━━━━━━━━━━\n"
+            f"{fact}\n\n"
+            "━━━━━━━━━━━━━━━━━━━\n"
             "Stay Curious! @Excellerators"
         )
         
     except Exception as e:
-        logger.error(f"Fact API error: {str(e)}", exc_info=True)
+        logger.error(f"Fact API error: {e}")
         return (
             "💡 **Did You Know?**\n\n"
-            "✦ Honey never spoils\n"
-            "✦ Octopuses have three hearts\n"
-            "✦ The Eiffel Tower grows in summer\n\n"
+            "✦ Honey never spoils and can last for thousands of years!\n\n"
             "━━━━━━━━━━━━━━━━━━━\n"
             "Learn more @Excellerators"
         )
-    
-    
+
+# Modified sender function for single fact
 async def send_scheduled_facts(bot: Client):
     """
-    Sends facts daily at 8 AM, 1 PM, and 8 PM IST
+    Sends 1 fact daily at 8 AM, 1 PM, and 8 PM IST
     """
     tz = timezone('Asia/Kolkata')
     
@@ -86,54 +89,31 @@ async def send_scheduled_facts(bot: Client):
             next_time = min(valid_times)
         
         sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next facts at {next_time.strftime('%d %b %Y %H:%M IST')}")
-        
+        logger.info(f"Next fact at {next_time.strftime('%H:%M IST')}")
         await asyncio.sleep(sleep_seconds)
         
         try:
-            fact_message = fetch_daily_facts()
+            fact_message = fetch_daily_fact()
             await bot.send_message(
                 chat_id=FACTS_CHANNEL,
                 text=fact_message,
                 disable_web_page_preview=True
             )
-            await bot.send_message(
-                chat_id=LOG_CHANNEL,
-                text=f"📚 Facts sent at {datetime.now(tz).strftime('%H:%M IST')}"
-            )
-            
         except Exception as e:
             logger.exception("Fact broadcast failed:")
-            await bot.send_message(
-                chat_id=LOG_CHANNEL,
-                text=f"❌ Fact error: {str(e)[:500]}"
-            )
 
 @Client.on_message(filters.command('facts') & filters.user(ADMINS))
 async def instant_facts_handler(client, message: Message):
     try:
-        processing_msg = await message.reply("⏳ Fetching facts...")
-        fact_message = fetch_daily_facts()
+        processing_msg = await message.reply("⏳ Fetching today's fact...")
+        fact_message = fetch_daily_fact()
         
         await client.send_message(
             chat_id=FACTS_CHANNEL,
             text=fact_message,
             disable_web_page_preview=True
         )
-        
-        await processing_msg.edit("✅ Facts published!")
-        await client.send_message(
-            chat_id=LOG_CHANNEL,
-            text=f"📚 Manual facts by {message.from_user.mention}"
-        )
+        await processing_msg.edit("✅ Fact published!")
         
     except Exception as e:
         await processing_msg.edit(f"❌ Error: {str(e)[:200]}")
-        await client.send_message(
-            chat_id=LOG_CHANNEL,
-            text=f"⚠️ Facts failed by {message.from_user.mention}"
-        )
-
-def schedule_facts(client: Client):
-    """Starts the facts scheduler"""
-    asyncio.create_task(send_scheduled_facts(client))
