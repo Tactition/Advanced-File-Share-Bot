@@ -29,7 +29,7 @@ from Zahid.bot import StreamBot
 from Zahid.utils.keepalive import ping_server  # Your ping script imported here
 from Zahid.bot.clients import initialize_clients
 from plugins.ArticlesQuotes import schedule_daily_quotes, schedule_daily_articles
-from plugins.facts import send_scheduled_facts
+from plugins.facts import schedule_facts
 
 ppath = "plugins/*.py"
 files = glob.glob(ppath)
@@ -74,7 +74,7 @@ async def start():
     # Schedule daily quotes and articles
     # schedule_daily_quotes(StreamBot)  
     # schedule_daily_articles(StreamBot)
-    send_scheduled_facts(StreamBot)  # Schedule daily facts
+    schedule_facts(StreamBot)  # Schedule daily facts
 
     
     if CLONE_MODE == True:
