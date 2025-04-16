@@ -4,43 +4,32 @@ import random
 import asyncio
 import json
 import hashlib
-import html
-import base64
-import time
-import socket
-import ssl
-import re
-import urllib.parse
-from datetime import date, datetime, timedelta
-from typing import List, Tuple
+import tempfile
+from datetime import datetime, timedelta
+from typing import Tuple
 
 import requests
 from pytz import timezone
-from bs4 import BeautifulSoup, Comment
-from validators import domain
-
+from groq import Groq
+from gtts import gTTS
 from pyrogram import Client, filters, enums
-from pyrogram.types import Message, PollOption
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
+from pyrogram.types import Message
+from pyrogram.errors import FloodWait
 
 import aiofiles
-
-from Script import script
-from plugins.dbusers import db
-from plugins.users_api import get_user, update_user_info, get_short_link
-from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
 from config import *
 
 # Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-# Add to your existing plugin file (e.g., vocabulary_plugin.py)
-from groq import Groq
 
-# Configuration
-client = Groq(api_key="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")
+# Groq Client Configuration
+groq_client = Groq(api_key="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")
+
+# Vocabulary Plugin Configuration
 SENT_WORDS_FILE = "sent_words.json"
 MAX_STORED_WORDS = 200
+TEMP_AUDIO_DIR = "temp_pronunciation"
 
 async def load_sent_words() -> list:
     """Load sent word IDs from file"""
@@ -56,49 +45,66 @@ async def save_sent_words(word_ids: list):
     async with aiofiles.open(SENT_WORDS_FILE, "w") as f:
         await f.write(json.dumps(word_ids[-MAX_STORED_WORDS:]))
 
-def fetch_daily_word() -> tuple:
+async def generate_pronunciation(word: str) -> str:
+    """Generate audio pronunciation using gTTS"""
+    try:
+        os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
+        clean_word = re.sub(r'[^a-zA-Z-]', '', word).lower()
+        file_path = os.path.join(TEMP_AUDIO_DIR, f"{clean_word}.mp3")
+        
+        # Generate only if not exists
+        if not os.path.exists(file_path):
+            tts = gTTS(text=word, lang='en', tld='com', slow=False)
+            tts.save(file_path)
+        
+        return file_path
+    except Exception as e:
+        logger.error(f"Pronunciation generation failed: {str(e)}")
+        return None
+
+async def fetch_daily_word() -> Tuple[str, str, str]:
     """
-    Fetches random vocabulary word using Groq API
-    Returns (formatted_word, word_id)
+    Fetches random vocabulary word with audio
+    Returns (formatted_word, word_id, audio_path)
     """
     try:
-        response = client.chat.completions.create(
+        response = groq_client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": """You are a creative English language expert who specializes in vocabulary and talk like a professional influential Figures. Generate vocabulary content with this EXACT format:
+                    "content": """You are a creative English language expert. Generate vocabulary content with this EXACT format:
 
 ✨<b><i> Word Of The Day ! </i></b> ✨
 
-<b><i>📚 [Word]</i></b>
+<b><i>📚 [Word] (part-of-speech)</i></b>
 ━━━━━━━━━━━━━━━
-<b><i>Meaning :</i></b>[Short definition] 
+<b><i>Meaning :</i></b>[Concise definition] 
 
 <b><i>💡 Think: </i></b>
-[Short relatable example/analogy]
+[Relatable analogy/example]
 
 <b><i>🎯 Synonyms :</i></b>
-<b>[Word1]:</b> [Brief explanation]
-<b>[Word2]:</b> [Different angle]
-<b>[Word3]:</b> [Unique take]
+<b>[Syn1]:</b> [Brief context]
+<b>[Syn2]:</b> [Different nuance]
+<b>[Syn3]:</b> [Specialized usage]
 
 <b><i>📝 Antonyms: </i></b>
-<b>[Word1] :</b> [Contrasting concept]
-<b>[Word2] :</b> [Opposite perspective]
-<b>[Word3] :</b> [Counterpart idea]
+<b>[Ant1]:</b> [Direct opposite]
+<b>[Ant2]:</b> [Contextual contrast]
+<b>[Ant3]:</b> [Conceptual inverse]
 
 <b><i>See It In Action!🎬</i></b>
-"[Practical example sentence]"
+"[Real-world example sentence]"
 
-<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators """
+<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators"""
                 },
                 {
                     "role": "user",
-                    "content": "Generate a fresh vocabulary entry in the specified format. Make it contemporary and conversational."
+                    "content": "Generate a fresh vocabulary entry with part-of-speech. Focus on contemporary usage and clear distinctions between similar terms."
                 }
             ],
             model="llama3-70b-8192",
-            temperature=1.3,
+            temperature=1.2,
             max_tokens=400,
             stream=False
         )
@@ -106,104 +112,140 @@ def fetch_daily_word() -> tuple:
         word_content = response.choices[0].message.content
         word_hash = hashlib.md5(word_content.encode()).hexdigest()
         
-        return (word_content, word_hash)
+        # Extract base word from content
+        word_line = next(line for line in word_content.split('\n') if '📚' in line)
+        word = re.search(r'📚\s*(.*?)\s*\(', word_line).group(1).strip()
+        
+        # Generate pronunciation
+        audio_path = await generate_pronunciation(word)
+        
+        return (word_content, word_hash, audio_path)
         
     except Exception as e:
-        logger.error(f"Groq API error: {e}")
+        logger.error(f"Groq API error: {str(e)}")
+        fallback_word = "Serendipity"
         return (
-            """✨ Level Up Your Lexicon! ✨
-Enthusiast 
-(Meaning): Someone who's absolutely fired up and deeply passionate about a specific hobby, interest, or subject! 🔥
+            f"""✨<b><i> Word Of The Day ! </i></b> ✨
 
-Think: That friend who lives and breathes video games? The person who can talk about their favorite band for hours? Yep, they're enthusiasts!
+<b><i>📚 {fallback_word} (noun)</i></b>
+━━━━━━━━━━━━━━━
+<b><i>Meaning :</i></b>The occurrence of fortunate discoveries by accident 🍀
 
-Synonyms :
-Fanatic: Going beyond just liking something! Think super dedicated.
-Devotee: Heart and soul invested! Shows a deep commitment.
-Aficionado: Not just a fan, but a knowledgeable one! Knows the ins and outs.
+<b><i>💡 Think: </i></b>
+Finding money in old jeans while doing laundry 👖
 
-Word Opposites (Flip the Script! 🔄):
-Skeptic: Hmm, I'm not so sure... Questions everything! 🤔
-Critic: Always finding something to pick apart. 🤨
-Indifferent: Meh. Doesn't care either way. 😴
+<b><i>🎯 Synonyms :</i></b>
+<b>Fortuity:</b> Chance occurrence 
+<b>Kismet:</b> Destiny's role 
+<b>Happenstance:</b> Random coincidence 
 
-See It In Action! 🎬
-"The release of the new sci-fi series drew in a massive crowd of enthusiasts, eager to explore its intricate world and compelling characters." 🚀🌌
+<b><i>📝 Antonyms: </i></b>
+<b>Planning:</b> Intentional design 
+<b>Calculation:</b> Precise intention 
+<b>Predictability:</b> Expected outcome 
 
-Ready to become a vocabulary enthusiast yourself? 😉
-Want more word wonders? ➡️ @Excellerators""",
-            f"fallback_{time.time()}"
+<b><i>See It In Action!🎬</i></b>
+"Through pure serendipity, I discovered my favorite café while lost in a new city." ☕️
+
+<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators""",
+            f"fallback_{time.time()}",
+            await generate_pronunciation(fallback_word)
         )
 
 async def send_scheduled_vocabulary(bot: Client):
-    """Send scheduled vocabulary words with duplicate prevention"""
+    """Send scheduled vocabulary with pronunciation"""
     tz = timezone('Asia/Kolkata')
     
     while True:
         now = datetime.now(tz)
         target_times = [
-            now.replace(hour=11, minute=30, second=0, microsecond=0),  # 11:30 AM IST
-            now.replace(hour=19, minute=30, second=0, microsecond=0)  # 7:30 PM IST
+            now.replace(hour=11, minute=30, second=0, microsecond=0),
+            now.replace(hour=19, minute=30, second=0, microsecond=0)
         ]
         
         valid_times = [t for t in target_times if t > now]
         next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
         
         sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next vocab at {next_time.strftime('%H:%M IST')}")
+        logger.info(f"Next vocabulary post at {next_time.strftime('%H:%M IST')}")
         await asyncio.sleep(sleep_seconds)
 
         try:
             sent_ids = await load_sent_words()
-            word_message, word_id = fetch_daily_word()
+            word_content, word_id, audio_path = await fetch_daily_word()
             
-            # Retry for unique word (max 3 attempts)
+            # Retry for unique word
             retry = 0
             while word_id in sent_ids and retry < 3:
-                word_message, word_id = fetch_daily_word()
+                word_content, word_id, audio_path = await fetch_daily_word()
                 retry += 1
             
-            await bot.send_message(
+            # Send text content
+            text_message = await bot.send_message(
                 chat_id=VOCAB_CHANNEL,
-                text=word_message,
+                text=word_content,
+                parse_mode=enums.ParseMode.HTML,
                 disable_web_page_preview=True
             )
+            
+            # Send pronunciation audio
+            if audio_path and os.path.exists(audio_path):
+                await bot.send_voice(
+                    chat_id=VOCAB_CHANNEL,
+                    voice=audio_path,
+                    caption=f"🔊 Pronunciation of today's word",
+                    reply_to_message_id=text_message.id
+                )
+            
+            # Cleanup and logging
             sent_ids.append(word_id)
             await save_sent_words(sent_ids)
-            
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"📖 Vocab sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {word_id}"
+                text=f"📖 Vocabulary posted at {datetime.now(tz).strftime('%H:%M IST')}\nID: {word_id}"
             )
             
         except Exception as e:
             logger.exception("Vocabulary broadcast failed:")
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"⚠️ Vocab send failed: {str(e)[:500]}"
+                text=f"⚠️ Vocabulary post failed: {str(e)[:500]}"
             )
+
 @Client.on_message(filters.command('vocab') & filters.user(ADMINS))
 async def instant_vocab_handler(client, message: Message):
     try:
-        processing_msg = await message.reply("⏳ Generating unique vocabulary...")
+        processing_msg = await message.reply("⏳ Crafting unique vocabulary post...")
         sent_ids = await load_sent_words()
-        word_message, word_id = fetch_daily_word()
+        word_content, word_id, audio_path = await fetch_daily_word()
         
         # Retry for unique word
         retry = 0
         while word_id in sent_ids and retry < 5:
-            word_message, word_id = fetch_daily_word()
+            word_content, word_id, audio_path = await fetch_daily_word()
             retry += 1
         
-        await client.send_message(
+        # Send content
+        text_message = await client.send_message(
             chat_id=VOCAB_CHANNEL,
-            text=word_message,
+            text=word_content,
+            parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
+        
+        # Send pronunciation
+        if audio_path and os.path.exists(audio_path):
+            await client.send_voice(
+                chat_id=VOCAB_CHANNEL,
+                voice=audio_path,
+                caption=f"🔊 Pronunciation of today's word",
+                reply_to_message_id=text_message.id
+            )
+        
+        # Update records
         sent_ids.append(word_id)
         await save_sent_words(sent_ids)
-        
-        await processing_msg.edit("✅ Vocabulary published!")
+        await processing_msg.edit("✅ Vocabulary published with pronunciation!")
         await client.send_message(
             chat_id=LOG_CHANNEL,
             text=f"📖 Manual vocabulary sent\nID: {word_id}"
@@ -217,5 +259,5 @@ async def instant_vocab_handler(client, message: Message):
         )
 
 def schedule_vocabulary(client: Client):
-    """Starts the vocabulary scheduler"""
+    """Initialize vocabulary scheduler"""
     asyncio.create_task(send_scheduled_vocabulary(client))
