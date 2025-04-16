@@ -34,7 +34,7 @@ from config import *
 # Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-# Add to your existing plugin file (e.g., vocabulary_plugin.py)
+
 from groq import Groq
 
 # Configuration
@@ -42,8 +42,12 @@ client = Groq(api_key="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"
 SENT_WORDS_FILE = "sent_words.json"
 MAX_STORED_WORDS = 200
 
+# API Ninjas configuration
+API_NINJAS_KEY = 'yYBRZDwxHB5EaXQNnsBpGA==F6URKYNnj9iMbHCs'
+RANDOM_WORD_URL = 'https://api.api-ninjas.com/v1/randomword'
+
 async def load_sent_words() -> list:
-    """Load sent word IDs from file"""
+    """Load sent words from file"""
     try:
         async with aiofiles.open(SENT_WORDS_FILE, "r") as f:
             content = await f.read()
@@ -51,26 +55,43 @@ async def load_sent_words() -> list:
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-async def save_sent_words(word_ids: list):
-    """Save sent word IDs to file"""
+async def save_sent_words(words: list):
+    """Save sent words to file"""
     async with aiofiles.open(SENT_WORDS_FILE, "w") as f:
-        await f.write(json.dumps(word_ids[-MAX_STORED_WORDS:]))
+        await f.write(json.dumps(words[-MAX_STORED_WORDS:]))
+
+def get_random_word() -> str:
+    """Fetch random word from API Ninjas"""
+    try:
+        response = requests.get(
+            RANDOM_WORD_URL,
+            headers={'X-Api-Key': API_NINJAS_KEY},
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get('word', '').strip().lower()
+    except Exception as e:
+        logger.error(f"API Ninjas error: {e}")
+        return random.choice(["enthusiast", "lexicon", "cogent", "paradigm"])
 
 def fetch_daily_word() -> tuple:
     """
-    Fetches random vocabulary word using Groq API
+    Fetches random vocabulary word using Groq API with API Ninjas base word
     Returns (formatted_word, word_id)
     """
     try:
+        base_word = get_random_word()
+        
         response = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": """You are a creative English language expert who specializes in vocabulary and talk like a professional influential Figures. Generate vocabulary content with this EXACT format:
+                    "content": f"""You are a creative English language expert who specializes in vocabulary. Generate vocabulary content with this EXACT format using the word '{base_word}':
 
 ✨<b><i> Word Of The Day ! </i></b> ✨
 
-<b><i>📚 [Word]</i></b>
+<b><i>📚 [{base_word.capitalize()}]</i></b>
 ━━━━━━━━━━━━━━━
 <b><i>Meaning :</i></b>[Short definition] 
 
@@ -88,13 +109,13 @@ def fetch_daily_word() -> tuple:
 <b>[Word3] :</b> [Counterpart idea]
 
 <b><i>See It In Action!🎬</i></b>
-"[Practical example sentence]"
+"[Practical example sentence using {base_word}]"
 
-<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators """
+<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators"""
                 },
                 {
                     "role": "user",
-                    "content": "Generate a fresh vocabulary entry in the specified format. Make it contemporary and conversational."
+                    "content": f"Generate a fresh vocabulary entry for the word '{base_word}' in the specified format. Make it contemporary and conversational."
                 }
             ],
             model="llama3-70b-8192",
@@ -104,9 +125,7 @@ def fetch_daily_word() -> tuple:
         )
         
         word_content = response.choices[0].message.content
-        word_hash = hashlib.md5(word_content.encode()).hexdigest()
-        
-        return (word_content, word_hash)
+        return (word_content, base_word)
         
     except Exception as e:
         logger.error(f"Groq API error: {e}")
@@ -142,8 +161,8 @@ async def send_scheduled_vocabulary(bot: Client):
     while True:
         now = datetime.now(tz)
         target_times = [
-            now.replace(hour=11, minute=30, second=0, microsecond=0),  # 11:30 AM IST
-            now.replace(hour=19, minute=30, second=0, microsecond=0)  # 7:30 PM IST
+            now.replace(hour=11, minute=30, second=0, microsecond=0),
+            now.replace(hour=19, minute=30, second=0, microsecond=0)
         ]
         
         valid_times = [t for t in target_times if t > now]
@@ -154,32 +173,31 @@ async def send_scheduled_vocabulary(bot: Client):
         await asyncio.sleep(sleep_seconds)
 
         try:
-            sent_ids = await load_sent_words()
-            word_message, word_id = fetch_daily_word()
+            sent_words = await load_sent_words()
+            word_message, base_word = fetch_daily_word()
             
-            # Enhanced retry logic
-            max_retries = 5  # Increased from 3
+            max_retries = 5
             retry = 0
-            while word_id in sent_ids and retry < max_retries:
-                await asyncio.sleep(1)  # Add short delay between retries
-                word_message, word_id = fetch_daily_word()
+            while base_word in sent_words and retry < max_retries:
+                await asyncio.sleep(1)
+                word_message, base_word = fetch_daily_word()
                 retry += 1
 
-            if word_id in sent_ids:
+            if base_word in sent_words:
                 logger.warning(f"Duplicate detected after {max_retries} retries, skipping")
-                continue  # Skip sending this iteration
+                continue
 
             await bot.send_message(
                 chat_id=VOCAB_CHANNEL,
                 text=word_message,
                 disable_web_page_preview=True
             )
-            sent_ids.append(word_id)
-            await save_sent_words(sent_ids)
+            sent_words.append(base_word)
+            await save_sent_words(sent_words)
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"📖 Vocab sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {word_id}"
+                text=f"📖 Vocab sent at {datetime.now(tz).strftime('%H:%M IST')}\nWord: {base_word}"
             )
             
         except Exception as e:
@@ -188,22 +206,22 @@ async def send_scheduled_vocabulary(bot: Client):
                 chat_id=LOG_CHANNEL,
                 text=f"⚠️ Vocab send failed: {str(e)[:500]}"
             )
+
 @Client.on_message(filters.command('vocab') & filters.user(ADMINS))
 async def instant_vocab_handler(client, message: Message):
     try:
         processing_msg = await message.reply("⏳ Generating unique vocabulary...")
-        sent_ids = await load_sent_words()
-        word_message, word_id = fetch_daily_word()
+        sent_words = await load_sent_words()
+        word_message, base_word = fetch_daily_word()
         
-        # Enhanced retry logic for manual command
-        max_retries = 10  # Increased from 5
+        max_retries = 10
         retry = 0
-        while word_id in sent_ids and retry < max_retries:
-            await asyncio.sleep(1)  # Add short delay
-            word_message, word_id = fetch_daily_word()
+        while base_word in sent_words and retry < max_retries:
+            await asyncio.sleep(1)
+            word_message, base_word = fetch_daily_word()
             retry += 1
 
-        if word_id in sent_ids:
+        if base_word in sent_words:
             await processing_msg.edit("❌ Failed to find unique word after retries")
             return
 
@@ -212,13 +230,13 @@ async def instant_vocab_handler(client, message: Message):
             text=word_message,
             disable_web_page_preview=True
         )
-        sent_ids.append(word_id)
-        await save_sent_words(sent_ids)
+        sent_words.append(base_word)
+        await save_sent_words(sent_words)
         
         await processing_msg.edit("✅ Vocabulary published!")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"📖 Manual vocabulary sent\nID: {word_id}"
+            text=f"📖 Manual vocabulary sent\nWord: {base_word}"
         )
         
     except Exception as e:
