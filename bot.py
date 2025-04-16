@@ -74,13 +74,12 @@ async def start():
     bind_address = "0.0.0.0"
     await web.TCPSite(app, bind_address, PORT).start()
     
-    # Schedule daily quotes and articles
+
     # schedule_daily_quotes(StreamBot)  
     # schedule_daily_articles(StreamBot)
-    schedule_facts(StreamBot) 
-    quiz_scheduler(StreamBot)
-    schedule_vocabulary(StreamBot)  # Schedule vocabulary messages
-
+    # schedule_facts(StreamBot) 
+    # quiz_scheduler(StreamBot)
+    # schedule_vocabulary(StreamBot) 
     
     if CLONE_MODE == True:
         await restart_bots()

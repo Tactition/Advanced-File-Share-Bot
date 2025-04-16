@@ -34,34 +34,30 @@ from config import *
 # Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-# Add to your existing plugin file (e.g., vocabulary_plugin.py)
+
 from groq import Groq
 
 # Configuration
 client = Groq(api_key="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")
-SENT_WORDS_FILE = "sent_words.json"
-MAX_STORED_WORDS = 500
 
-async def load_sent_words() -> list:
-    """Load sent word IDs (or in this case the words themselves) from file"""
+async def get_sent_words_from_channel(bot: Client) -> list:
+    """Fetch sent words from channel message history"""
+    sent_words = []
     try:
-        async with aiofiles.open(SENT_WORDS_FILE, "r") as f:
-            content = await f.read()
-            return json.loads(content)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-async def save_sent_words(words: list):
-    """Save sent word IDs (or words themselves) to file"""
-    async with aiofiles.open(SENT_WORDS_FILE, "w") as f:
-        await f.write(json.dumps(words[-MAX_STORED_WORDS:]))
+        async for message in bot.get_chat_history(chat_id=VOCAB_CHANNEL, limit=200):
+            if not message.text:
+                continue
+            # Use the same extraction logic as in fetch_daily_word()
+            match = re.search(r"<b><i>📚\s*(.*?)\s*</i></b>", message.text)
+            if match:
+                sent_words.append(match.group(1).strip())
+    except Exception as e:
+        logger.error(f"Error fetching channel messages: {e}")
+        await bot.send_message(LOG_CHANNEL, f"⚠️ Vocab history fetch error: {str(e)[:500]}")
+    return sent_words
 
 def fetch_daily_word() -> tuple:
-    """
-    Fetches random vocabulary word using Groq API.
-    Returns (formatted_word, unique_word)
-    The unique_word is extracted from the message content to avoid duplicate sending.
-    """
+    """Original function remains completely unchanged"""
     try:
         response = client.chat.completions.create(
             messages=[
@@ -95,8 +91,6 @@ def fetch_daily_word() -> tuple:
 
 "Formatting Rules:\n"
 "- dont use [] in the content\n"
-
-
 """
                 },
                 {
@@ -111,15 +105,8 @@ def fetch_daily_word() -> tuple:
         )
         
         word_content = response.choices[0].message.content
-        # Extract the vocabulary word from the formatted message.
-        # This regex looks for the text after the "📚" emoji inside the <b><i> tag.
         match = re.search(r"<b><i>📚\s*(.*?)\s*</i></b>", word_content)
-        if match:
-            unique_word = match.group(1)
-        else:
-            # Fallback: use a simple hash if extraction fails
-            unique_word = hashlib.md5(word_content.encode()).hexdigest()
-        
+        unique_word = match.group(1) if match else hashlib.md5(word_content.encode()).hexdigest()
         return (word_content, unique_word)
         
     except Exception as e:
@@ -145,19 +132,17 @@ See It In Action! 🎬
 
 Ready to become a vocabulary enthusiast yourself? 😉
 Want more word wonders? ➡️ @Excellerators"""
-        # Use fallback's first line as the word (or a hash fallback with time)
-        unique_word = "Enthusiast"
-        return (fallback_message, f"fallback_{time.time()}")  # Even fallback includes a dynamic part to avoid repeats if needed.
+        return (fallback_message, f"fallback_{time.time()}")
 
 async def send_scheduled_vocabulary(bot: Client):
-    """Send scheduled vocabulary words with duplicate prevention"""
+    """Modified to use channel-based duplicate checking"""
     tz = timezone('Asia/Kolkata')
     
     while True:
         now = datetime.now(tz)
         target_times = [
-            now.replace(hour=11, minute=30, second=0, microsecond=0),  # 11:30 AM IST
-            now.replace(hour=19, minute=30, second=0, microsecond=0)  # 7:30 PM IST
+            now.replace(hour=11, minute=30, second=0, microsecond=0),
+            now.replace(hour=19, minute=30, second=0, microsecond=0)
         ]
         
         valid_times = [t for t in target_times if t > now]
@@ -168,10 +153,9 @@ async def send_scheduled_vocabulary(bot: Client):
         await asyncio.sleep(sleep_seconds)
 
         try:
-            sent_words = await load_sent_words()
+            sent_words = await get_sent_words_from_channel(bot)
             word_message, unique_word = fetch_daily_word()
             
-            # Retry for unique word (max 3 attempts)
             retry = 0
             while unique_word in sent_words and retry < 3:
                 word_message, unique_word = fetch_daily_word()
@@ -182,8 +166,6 @@ async def send_scheduled_vocabulary(bot: Client):
                 text=word_message,
                 disable_web_page_preview=True
             )
-            sent_words.append(unique_word)
-            await save_sent_words(sent_words)
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
@@ -201,10 +183,9 @@ async def send_scheduled_vocabulary(bot: Client):
 async def instant_vocab_handler(client, message: Message):
     try:
         processing_msg = await message.reply("⏳ Generating unique vocabulary...")
-        sent_words = await load_sent_words()
+        sent_words = await get_sent_words_from_channel(client)
         word_message, unique_word = fetch_daily_word()
         
-        # Retry for unique word (max 5 attempts)
         retry = 0
         while unique_word in sent_words and retry < 5:
             word_message, unique_word = fetch_daily_word()
@@ -215,8 +196,6 @@ async def instant_vocab_handler(client, message: Message):
             text=word_message,
             disable_web_page_preview=True
         )
-        sent_words.append(unique_word)
-        await save_sent_words(sent_words)
         
         await processing_msg.edit("✅ Vocabulary published!")
         await client.send_message(
@@ -232,5 +211,5 @@ async def instant_vocab_handler(client, message: Message):
         )
 
 def schedule_vocabulary(client: Client):
-    """Starts the vocabulary scheduler"""
+    """Unchanged scheduler function"""
     asyncio.create_task(send_scheduled_vocabulary(client))
