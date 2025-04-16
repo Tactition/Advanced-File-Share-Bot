@@ -157,12 +157,18 @@ async def send_scheduled_vocabulary(bot: Client):
             sent_ids = await load_sent_words()
             word_message, word_id = fetch_daily_word()
             
-            # Retry for unique word (max 3 attempts)
+            # Enhanced retry logic
+            max_retries = 5  # Increased from 3
             retry = 0
-            while word_id in sent_ids and retry < 3:
+            while word_id in sent_ids and retry < max_retries:
+                await asyncio.sleep(1)  # Add short delay between retries
                 word_message, word_id = fetch_daily_word()
                 retry += 1
-            
+
+            if word_id in sent_ids:
+                logger.warning(f"Duplicate detected after {max_retries} retries, skipping")
+                continue  # Skip sending this iteration
+
             await bot.send_message(
                 chat_id=VOCAB_CHANNEL,
                 text=word_message,
@@ -189,12 +195,18 @@ async def instant_vocab_handler(client, message: Message):
         sent_ids = await load_sent_words()
         word_message, word_id = fetch_daily_word()
         
-        # Retry for unique word
+        # Enhanced retry logic for manual command
+        max_retries = 10  # Increased from 5
         retry = 0
-        while word_id in sent_ids and retry < 5:
+        while word_id in sent_ids and retry < max_retries:
+            await asyncio.sleep(1)  # Add short delay
             word_message, word_id = fetch_daily_word()
             retry += 1
-        
+
+        if word_id in sent_ids:
+            await processing_msg.edit("❌ Failed to find unique word after retries")
+            return
+
         await client.send_message(
             chat_id=VOCAB_CHANNEL,
             text=word_message,
