@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Optional
 import html
+import hashlib
 import requests
 from pytz import timezone
 from validators import url
