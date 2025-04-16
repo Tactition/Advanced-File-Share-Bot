@@ -74,15 +74,15 @@ def fetch_daily_word() -> tuple:
 ━━━━━━━━━━━━━━━
 <b><i>Meaning :</i></b>[Short definition] 
 
-<b><i>Think: </i></b>
-💡[Short relatable example/analogy]
+<b><i>💡Think: </i></b>
+[Short relatable example/analogy]
 
-<b><i> Synonyms :</i></b>
+<b><i>Synonyms :</i></b>
 <b>[Word1]:</b> [Brief explanation]
 <b>[Word2]:</b> [Different angle]
 <b>[Word3]:</b> [Unique take]
 
-<b><i> Antonyms: </i></b>
+<b><i>Antonyms: </i></b>
 <b>[Word1] :</b> [Contrasting concept]
 <b>[Word2] :</b> [Opposite perspective]
 <b>[Word3] :</b> [Counterpart idea]
