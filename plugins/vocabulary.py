@@ -63,17 +63,19 @@ async def save_sent_words(words: list):
 def get_random_word() -> str:
     """Fetch random word from API Ninjas"""
     try:
-        response = requests.get(
-            RANDOM_WORD_URL,
-            headers={'X-Api-Key': API_NINJAS_KEY},
-            timeout=10
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get('word', '').strip().lower()
+        response = requests.get(RANDOM_WORD_URL, headers={'X-Api-Key': API_NINJAS_KEY})
+        
+        if response.status_code == requests.codes.ok:
+            data = response.json()
+            return data.get('word')
+        else:
+            print(f"Error fetching random word: {response.status_code}, {response.text}")
+            return None 
     except Exception as e:
-        logger.error(f"API Ninjas error: {e}")
-        return random.choice(["enthusiast", "lexicon", "cogent", "paradigm"])
+        print(f"Exception occurred: {e}")
+        return None
+    
+
 
 def fetch_daily_word() -> tuple:
     """
