@@ -40,7 +40,7 @@ from groq import Groq
 # Configuration
 client = Groq(api_key="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")
 SENT_WORDS_FILE = "sent_words.json"
-MAX_STORED_WORDS = 200
+MAX_STORED_WORDS = 500
 
 async def load_sent_words() -> list:
     """Load sent word IDs (or in this case the words themselves) from file"""
@@ -67,7 +67,7 @@ def fetch_daily_word() -> tuple:
             messages=[
                 {
                     "role": "system",
-                    "content": """You are a creative English language expert who specializes in vocabulary and talk like a professional influential Figures. Generate vocabulary content with this EXACT format:
+                    "content": """You are a creative and charismatic English language expert with a knack for inspiring confident, effective communication who specializes in vocabulary and talks like a professional influential Figures. Every day, you generate a fresh, unique vocabulary word that will improve everyday interactions and help people speak more effectively. Generate vocabulary content with this EXACT format:
 
 ✨<b><i> Word Of The Day ! </i></b> ✨
 
