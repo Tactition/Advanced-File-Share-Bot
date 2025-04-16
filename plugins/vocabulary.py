@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 # Add to your existing plugin file (e.g., vocabulary_plugin.py)
 from groq import Groq
+from collections import deque
 
 # Configuration
 client = Groq(api_key="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")

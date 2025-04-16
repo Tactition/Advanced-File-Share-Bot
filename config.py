@@ -56,6 +56,7 @@ ARTICLE_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002583776397"))  # replace
 FACTS_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002625104089"))  # replace with your actual Facts channel ID
 QUIZ_CHANNEL = int(environ.get("QUIZ_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
 VOCAB_CHANNEL = int(environ.get("VOCAB_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
+WONDERS_CHANNEL = int(environ.get("WONDERS_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
 
 
 # Channel Information
