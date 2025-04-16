@@ -79,7 +79,7 @@ def fetch_daily_content() -> dict:
 async def send_daily_message(bot: Client, content: dict):
     """Send formatted message to channel"""
     message = (
-        "🌅 <b>Daily Boost</b> 🌟\n\n"
+        "🌅 <b>Top 1% Insights</b> 🌟\n\n"
         f"💖 <i>Affirmation:</i>\n{html.escape(content['affirmation'])}\n\n"
         f"🧠 <i>Advice of the Day:</i>\n{html.escape(content['advice'])}\n\n"
         "━━━━━━━━━━━━━━━━━━━\n"
@@ -100,7 +100,7 @@ async def send_daily_message(bot: Client, content: dict):
             text=f"⚠️ Failed to send daily message: {str(e)[:500]}"
         )
 
-        
+
 async def send_scheduled_daily(bot: Client):
     """Send scheduled daily message"""
     tz = timezone('Asia/Kolkata')
