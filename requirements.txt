@@ -21,5 +21,3 @@ itsdangerous==2.0.1
 webdriver-manager>=3.0
 aiofiles
 groq  
-
-gtts 
