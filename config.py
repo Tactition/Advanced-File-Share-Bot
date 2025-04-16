@@ -54,7 +54,7 @@ QUOTE_DELETE_DELAY = int(os.environ.get("QUOTE_DELETE_DELAY", "14400"))  # delay
 DELETION_INTERVAL = float(os.environ.get("DELETION_INTERVAL", "1"))  # seconds between scheduling each deletion task means how many seconds wait should be there to delete the message in bot pm
 ARTICLE_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002583776397"))  # replace with your actual quotes channel ID
 FACTS_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002625104089"))  # replace with your actual Facts channel ID
-TRIVIA_CHANNEL = int(environ.get("TRIVIA_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
+QUIZ_CHANNEL = int(environ.get("QUIZ_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
 
 # Channel Information
 LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "-1002230949609"))

@@ -39,32 +39,32 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-SENT_TRIVIA_FILE = "sent_trivia.json"
+SENT_QUIZ_FILE = "sent_Quiz.json"
 MAX_STORED_QUESTIONS = 300
 IST = timezone('Asia/Kolkata')
 QUESTIONS_PER_POST = 4
 
-async def load_sent_trivia() -> List[str]:
+async def load_sent_Quiz() -> List[str]:
     """Load sent question IDs from file"""
     try:
-        async with aiofiles.open(SENT_TRIVIA_FILE, "r") as f:
+        async with aiofiles.open(SENT_QUIZ_FILE, "r") as f:
             content = await f.read()
             return json.loads(content)
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-async def save_sent_trivia(question_ids: List[str]):
+async def save_sent_Quiz(question_ids: List[str]):
     """Save sent question IDs to file"""
-    async with aiofiles.open(SENT_TRIVIA_FILE, "w") as f:
+    async with aiofiles.open(SENT_QUIZ_FILE, "w") as f:
         await f.write(json.dumps(question_ids[-MAX_STORED_QUESTIONS:]))
 
 def generate_question_id(question_text: str) -> str:
     """Generate SHA-256 hash of question text"""
     return hashlib.sha256(question_text.encode()).hexdigest()
 
-def fetch_trivia_questions() -> List[Tuple[str, List[PollOption], int, str, str, str]]:
+def fetch_Quiz_questions() -> List[Tuple[str, List[PollOption], int, str, str, str]]:
     """
-    Fetches and formats 4 trivia questions for Telegram polls
+    Fetches and formats 4 Quiz questions for Telegram polls
     Returns list of (question, options, correct_idx, category, difficulty, qid)
     """
     try:
@@ -112,7 +112,7 @@ def fetch_trivia_questions() -> List[Tuple[str, List[PollOption], int, str, str,
         return questions
 
     except Exception as e:
-        logger.error(f"Trivia API error: {e}")
+        logger.error(f"Quiz API error: {e}")
         # Fallback: 4 different questions
         return [
             (
@@ -179,7 +179,7 @@ async def process_questions(bot, questions, sent_ids):
         while qid in sent_ids and retry < 3:
             # Fetch replacement question
             try:
-                new_questions = fetch_trivia_questions(1)
+                new_questions = fetch_Quiz_questions(1)
                 if new_questions:
                     question_data = new_questions[0]
                     qid = question_data[5]
@@ -189,7 +189,7 @@ async def process_questions(bot, questions, sent_ids):
                 break
 
         if qid not in sent_ids:
-            poll = await send_quiz_poll(bot, TRIVIA_CHANNEL, question_data)
+            poll = await send_quiz_poll(bot, QUIZ_CHANNEL, question_data)
             if poll:
                 new_ids.append(qid)
                 sent_polls.append(poll)
@@ -197,8 +197,8 @@ async def process_questions(bot, questions, sent_ids):
 
     return new_ids, sent_polls
 
-async def send_scheduled_trivia(bot: Client):
-    """Main scheduling loop for trivia polls"""
+async def send_scheduled_Quiz(bot: Client):
+    """Main scheduling loop for Quiz polls"""
     while True:
         now = datetime.now(IST)
         target_times = [
@@ -210,23 +210,23 @@ async def send_scheduled_trivia(bot: Client):
             else target_times[0] + timedelta(days=1)
 
         sleep_duration = (next_time - now).total_seconds()
-        logger.info(f"Next trivia scheduled for {next_time.astimezone(IST).strftime('%Y-%m-%d %H:%M:%S IST')}")
+        logger.info(f"Next Quiz scheduled for {next_time.astimezone(IST).strftime('%Y-%m-%d %H:%M:%S IST')}")
         await asyncio.sleep(sleep_duration)
 
         try:
-            sent_ids = await load_sent_trivia()
-            questions = fetch_trivia_questions()
+            sent_ids = await load_sent_Quiz()
+            questions = fetch_Quiz_questions()
 
             new_ids, sent_polls = await process_questions(bot, questions, sent_ids)
             
             if new_ids:
                 sent_ids.extend(new_ids)
-                await save_sent_trivia(sent_ids)
+                await save_sent_Quiz(sent_ids)
 
                 await bot.send_message(
                     chat_id=LOG_CHANNEL,
                     text=(
-                        f"✅ {len(new_ids)} Trivia Polls Sent\n"
+                        f"✅ {len(new_ids)} Quiz Polls Sent\n"
                         f"🕒 {datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S IST')}\n"
                         f"📝 Sample: {questions[0][0][:50]}...\n"
                         f"🆔 IDs: {', '.join(qid[:6] for qid in new_ids[:3])}..."
@@ -235,36 +235,36 @@ async def send_scheduled_trivia(bot: Client):
             else:
                 await bot.send_message(
                     chat_id=LOG_CHANNEL,
-                    text="❌ Failed to send any trivia polls"
+                    text="❌ Failed to send any Quiz polls"
                 )
 
         except Exception as e:
-            logger.exception("Failed to send scheduled trivia:")
+            logger.exception("Failed to send scheduled Quiz:")
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"❌ Scheduled Trivia Failed\nError: {str(e)[:500]}"
+                text=f"❌ Scheduled Quiz Failed\nError: {str(e)[:500]}"
             )
 
-@Client.on_message(filters.command('trivia') & filters.user(ADMINS))
-async def manual_trivia(client: Client, message: Message):
-    """Handle manual trivia command from admins"""
+@Client.on_message(filters.command('Quiz') & filters.user(ADMINS))
+async def manual_Quiz(client: Client, message: Message):
+    """Handle manual Quiz command from admins"""
     processing_msg = None
     try:
-        processing_msg = await message.reply(f"⏳ Generating {QUESTIONS_PER_POST} trivia polls...")
-        sent_ids = await load_sent_trivia()
-        questions = fetch_trivia_questions()
+        processing_msg = await message.reply(f"⏳ Generating {QUESTIONS_PER_POST} Quiz polls...")
+        sent_ids = await load_sent_Quiz()
+        questions = fetch_Quiz_questions()
 
         new_ids, sent_polls = await process_questions(client, questions, sent_ids)
         
         if new_ids:
             sent_ids.extend(new_ids)
-            await save_sent_trivia(sent_ids)
-            await processing_msg.edit(f"✅ {len(new_ids)} Trivia polls published!")
+            await save_sent_Quiz(sent_ids)
+            await processing_msg.edit(f"✅ {len(new_ids)} Quiz polls published!")
 
             await client.send_message(
                 chat_id=LOG_CHANNEL,
                 text=(
-                    f"🎛 Manual Trivia Sent\n"
+                    f"🎛 Manual Quiz Sent\n"
                     f"👤 {message.from_user.mention}\n"
                     f"📝 {len(new_ids)} polls\n"
                     f"🆔 IDs: {', '.join(qid[:6] for qid in new_ids[:3])}..."
@@ -274,7 +274,7 @@ async def manual_trivia(client: Client, message: Message):
             await processing_msg.edit("❌ Failed to send any polls")
             await client.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"⚠️ Manual Trivia Failed by {message.from_user.mention}"
+                text=f"⚠️ Manual Quiz Failed by {message.from_user.mention}"
             )
 
     except Exception as e:
@@ -284,12 +284,12 @@ async def manual_trivia(client: Client, message: Message):
         else:
             await message.reply(error_msg)
         
-        logger.exception("Manual trivia error:")
+        logger.exception("Manual Quiz error:")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"⚠️ Manual Trivia Failed\nError: {repr(e)[:500]}"
+            text=f"⚠️ Manual Quiz Failed\nError: {repr(e)[:500]}"
         )
 
 def quiz_scheduler(client: Client):
-    """Initialize the trivia scheduler"""
-    client.loop.create_task(send_scheduled_trivia(client))
+    """Initialize the Quiz scheduler"""
+    client.loop.create_task(send_scheduled_Quiz(client))
