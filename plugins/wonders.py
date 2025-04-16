@@ -57,8 +57,9 @@ def fetch_wonders(count: int = 2) -> Optional[list]:
             data = response.json()
             
             # Process images
+           # Inside fetch_wonders function
             image_urls = data.get("links", {}).get("images", [])
-            main_image = next((url for url in image_urls if url and url(url)), None)
+            main_image = next((link for link in image_urls if link and url(link)), None)
 
             wonders.append({
                 "id": str(data.get("name", str(time.time())) + str(time.time())),
