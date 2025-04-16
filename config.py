@@ -55,6 +55,8 @@ DELETION_INTERVAL = float(os.environ.get("DELETION_INTERVAL", "1"))  # seconds b
 ARTICLE_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002583776397"))  # replace with your actual quotes channel ID
 FACTS_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002625104089"))  # replace with your actual Facts channel ID
 QUIZ_CHANNEL = int(environ.get("QUIZ_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
+VOCAB_CHANNEL = int(environ.get("VOCAB_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
+
 
 # Channel Information
 LOG_CHANNEL = int(environ.get("LOG_CHANNEL", "-1002230949609"))

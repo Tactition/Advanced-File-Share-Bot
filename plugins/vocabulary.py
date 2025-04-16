@@ -31,6 +31,9 @@ from plugins.users_api import get_user, update_user_info, get_short_link
 from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
 from config import *
 
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 # Add to your existing plugin file (e.g., vocabulary_plugin.py)
 from groq import Groq
 

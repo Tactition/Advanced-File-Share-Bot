@@ -31,6 +31,7 @@ from Zahid.bot.clients import initialize_clients
 from plugins.ArticlesQuotes import schedule_daily_quotes, schedule_daily_articles
 from plugins.facts import schedule_facts
 from plugins.quiz import quiz_scheduler
+from plugins.vocabulary import schedule_vocabulary
 
 
 ppath = "plugins/*.py"
@@ -78,6 +79,7 @@ async def start():
     # schedule_daily_articles(StreamBot)
     schedule_facts(StreamBot) 
     quiz_scheduler(StreamBot)
+    schedule_vocabulary(StreamBot)  # Schedule vocabulary messages
 
     
     if CLONE_MODE == True:
