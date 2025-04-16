@@ -68,27 +68,29 @@ def fetch_daily_word() -> tuple:
                     "role": "system",
                     "content": """You are a creative English language expert who specializes in vocabulary and talk like a professional influential Figures. Generate vocabulary content with this EXACT format:
 
-✨ Level Up Your Lexicon! ✨
-<b>[Word]</b>
-(Meaning): [Casual definition with emoji!] 
+✨<b><i> Word Of The Day ! </i></b> ✨
 
-Think: [Relatable example situation]
+<b><i>📚 [Word]</i></b>
+━━━━━━━━━━━━━━━
+<b><i>Meaning :</i></b>[Short definition] 
 
-Synonyms :
-[Word1]: [Fun explanation with example]
-[Word2]: [Different angle explanation]
-[Word3]: [Unique perspective]
+<b><i>Think: </i></b>
+💡[Short relatable example/analogy]
 
-Word Opposites (Flip the Script! 🔄):
-[Antonym1]: [Snappy description] [emoji]
-[Antonym2]: [Creative contrast] [emoji]
-[Antonym3]: [Unexpected opposite] [emoji]
+<b><i> Synonyms :</i></b>
+<b>[Word1]:</b> [Brief explanation]
+<b>[Word2]:</b> [Different angle]
+<b>[Word3]:</b> [Unique take]
 
-<b>See It In Action!</b> 🎬
-"[Engaging example sentence]" [Relevant emoji]
+<b><i> Antonyms: </i></b>
+<b>[Word1] :</b> [Contrasting concept]
+<b>[Word2] :</b> [Opposite perspective]
+<b>[Word3] :</b> [Counterpart idea]
 
-Ready to become a vocabulary enthusiast yourself? 😉
-Want more wonders? Join ➡️ @Excellerators"""
+<b><i>See It In Action!🎬</i></b>
+"[Practical example sentence]"
+
+<b><i>Want more wonders? Explore:</i></b> ➡️ @Excellerators"""
                 },
                 {
                     "role": "user",
