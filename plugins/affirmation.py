@@ -79,9 +79,9 @@ def fetch_daily_content() -> dict:
 async def send_daily_message(bot: Client, content: dict):
     """Send formatted message to channel"""
     message = (
-        "🌅 **Daily Boost** 🌟\n\n"
-        f"💖 *Affirmation:*\n{html.escape(content['affirmation'])}\n\n"
-        f"🧠 *Advice of the Day:*\n{html.escape(content['advice'])}\n\n"
+        "🌅 <b>Daily Boost</b> 🌟\n\n"
+        f"💖 <i>Affirmation:</i>\n{html.escape(content['affirmation'])}\n\n"
+        f"🧠 <i>Advice of the Day:</i>\n{html.escape(content['advice'])}\n\n"
         "━━━━━━━━━━━━━━━━━━━\n"
         "Be Positive and Explore! @Excellerators"
     )
@@ -90,7 +90,7 @@ async def send_daily_message(bot: Client, content: dict):
         await bot.send_message(
             chat_id=WONDERS_CHANNEL,
             text=message,
-            parse_mode=enums.ParseMode.MARKDOWN,
+            parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
     except Exception as e:
@@ -100,6 +100,7 @@ async def send_daily_message(bot: Client, content: dict):
             text=f"⚠️ Failed to send daily message: {str(e)[:500]}"
         )
 
+        
 async def send_scheduled_daily(bot: Client):
     """Send scheduled daily message"""
     tz = timezone('Asia/Kolkata')
