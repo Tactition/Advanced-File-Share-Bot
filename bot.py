@@ -32,6 +32,7 @@ from plugins.ArticlesQuotes import schedule_daily_quotes, schedule_daily_article
 from plugins.facts import schedule_facts
 from plugins.quiz import quiz_scheduler
 from plugins.vocabulary import schedule_vocabulary
+from plugins.wonders import *
 
 
 ppath = "plugins/*.py"
@@ -80,6 +81,7 @@ async def start():
     # schedule_facts(StreamBot) 
     # quiz_scheduler(StreamBot)
     # schedule_vocabulary(StreamBot) 
+
     
     if CLONE_MODE == True:
         await restart_bots()
