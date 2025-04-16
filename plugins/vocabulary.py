@@ -31,11 +31,6 @@ from plugins.users_api import get_user, update_user_info, get_short_link
 from Zahid.utils.file_properties import get_name, get_hash, get_media_file_size
 from config import *
 
-# for google tts 
-from gtts import gTTS
-import tempfile
-import shutil
-
 # Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -76,7 +71,7 @@ def fetch_daily_word() -> tuple:
 
 ✨<b><i> Word Of The Day ! </i></b> ✨
 
-<b><i>📚 [Word]</i></b>
+<b><i>📚 [Word] </i></b>
 ━━━━━━━━━━━━━━━
 <b><i>Meaning :</i></b>[Short definition] 
 
@@ -96,7 +91,13 @@ def fetch_daily_word() -> tuple:
 <b><i>See It In Action!🎬</i></b>
 "[Practical example sentence]"
 
-<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators """
+<b><i>🧭 Want more wonders? Explore:</i></b> ➡️ @Excellerators
+
+"Formatting Rules:\n"
+"- dont use [] in the content\n"
+
+
+"""
                 },
                 {
                     "role": "user",
