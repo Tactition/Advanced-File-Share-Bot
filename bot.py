@@ -81,6 +81,7 @@ async def start():
     # schedule_facts(StreamBot) 
     # quiz_scheduler(StreamBot)
     # schedule_vocabulary(StreamBot) 
+    schedule_wonders(StreamBot)
 
     
     if CLONE_MODE == True:

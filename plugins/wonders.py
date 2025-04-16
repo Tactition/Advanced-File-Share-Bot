@@ -40,12 +40,11 @@ async def save_sent_wonders(wonder_ids: list):
     async with aiofiles.open(SENT_WONDERS_FILE, "w") as f:
         await f.write(json.dumps(wonder_ids[-MAX_STORED_WONDERS:]))
 
-def fetch_wonders(count: int = 2) -> Optional[list]:
+def fetch_wonders(count: int = 1) -> Optional[list]:
     """
     Fetches random wonders from API
     Returns list of wonder dicts or None
     """
-
     try:
         wonders = []
         for _ in range(count):
@@ -57,7 +56,6 @@ def fetch_wonders(count: int = 2) -> Optional[list]:
             data = response.json()
             
             # Process images
-           # Inside fetch_wonders function
             image_urls = data.get("links", {}).get("images", [])
             main_image = next((link for link in image_urls if link and url(link)), None)
 
@@ -76,7 +74,6 @@ def fetch_wonders(count: int = 2) -> Optional[list]:
     except Exception as e:
         logger.error(f"Wonder API error: {e}")
         return None
-
 
 async def send_wonder_post(bot: Client, wonder: dict):
     """Send wonder to channel with proper formatting"""
@@ -117,48 +114,39 @@ async def send_scheduled_wonders(bot: Client):
     
     while True:
         now = datetime.now(tz)
-        # Send at 9 AM and 9 PM IST
-        target_times = [
-            now.replace(hour=9, minute=0, second=0, microsecond=0),
-            now.replace(hour=21, minute=0, second=0, microsecond=0)
-        ]
+        # Single daily post at 9 PM IST
+        target_time = now.replace(hour=21, minute=0, second=0, microsecond=0)
         
-        valid_times = [t for t in target_times if t > now]
-        next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
+        # If target time already passed today, schedule for tomorrow
+        if now > target_time:
+            target_time += timedelta(days=1)
         
-        sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next wonder post at {next_time.strftime('%H:%M IST')}")
+        sleep_seconds = (target_time - now).total_seconds()
+        logger.info(f"Next wonder post at {target_time.strftime('%H:%M IST')}")
         await asyncio.sleep(sleep_seconds)
 
         try:
             sent_ids = await load_sent_wonders()
-            wonders = fetch_wonders(2) or []
+            wonder = None
             
-            # Ensure we get exactly 2 unique wonders
-            valid_wonders = []
-            for wonder in wonders:
-                if wonder['id'] not in sent_ids:
-                    valid_wonders.append(wonder)
-                    sent_ids.append(wonder['id'])
+            # Fetch until we get a unique wonder (max 5 retries)
+            for _ in range(5):
+                wonders = fetch_wonders(1)
+                if wonders and wonders[0]['id'] not in sent_ids:
+                    wonder = wonders[0]
+                    break
             
-            # If we didn't get enough unique wonders, fetch more
-            while len(valid_wonders) < 2:
-                new_wonder = fetch_wonders(1)
-                if new_wonder and new_wonder[0]['id'] not in sent_ids:
-                    valid_wonders.append(new_wonder[0])
-                    sent_ids.append(new_wonder[0]['id'])
-            
-            # Send posts with 1 minute interval
-            for idx, wonder in enumerate(valid_wonders[:2]):
-                await send_wonder_post(bot, wonder)
-                if idx == 0:  # Add delay between posts
-                    await asyncio.sleep(60)
-            
+            if not wonder:
+                logger.error("Failed to find unique wonder after 5 attempts")
+                continue
+                
+            await send_wonder_post(bot, wonder)
+            sent_ids.append(wonder['id'])
             await save_sent_wonders(sent_ids)
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"🏛️ {len(valid_wonders)} wonders sent at {datetime.now(tz).strftime('%H:%M IST')}"
+                text=f"🏛️ Wonder sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {wonder['id']}"
             )
             
         except Exception as e:
@@ -167,29 +155,29 @@ async def send_scheduled_wonders(bot: Client):
 @Client.on_message(filters.command('wonders') & filters.user(ADMINS))
 async def manual_wonder_handler(client, message: Message):
     try:
-        processing_msg = await message.reply("⏳ Fetching wonders...")
+        processing_msg = await message.reply("⏳ Fetching wonder...")
         sent_ids = await load_sent_wonders()
-        wonders = fetch_wonders(2) or []
+        wonder = None
         
-        valid_wonders = []
-        for wonder in wonders:
-            if wonder['id'] not in sent_ids:
-                valid_wonders.append(wonder)
-                sent_ids.append(wonder['id'])
+        # Fetch until we get a unique wonder (max 5 retries)
+        for _ in range(5):
+            wonders = fetch_wonders(1)
+            if wonders and wonders[0]['id'] not in sent_ids:
+                wonder = wonders[0]
+                break
         
-        if not valid_wonders:
-            await processing_msg.edit("❌ No new wonders found")
+        if not wonder:
+            await processing_msg.edit("❌ No new wonder found after 5 attempts")
             return
             
-        for wonder in valid_wonders:
-            await send_wonder_post(client, wonder)
-            await asyncio.sleep(1)
-        
+        await send_wonder_post(client, wonder)
+        sent_ids.append(wonder['id'])
         await save_sent_wonders(sent_ids)
-        await processing_msg.edit(f"✅ {len(valid_wonders)} wonders published!")
+        
+        await processing_msg.edit("✅ Wonder published!")
         await client.send_message(
             chat_id=LOG_CHANNEL,
-            text=f"🏛️ Manual wonders sent: {', '.join(w['id'] for w in valid_wonders)}"
+            text=f"🏛️ Manual wonder sent: {wonder['id']}"
         )
         
     except Exception as e:
@@ -202,4 +190,3 @@ async def manual_wonder_handler(client, message: Message):
 def schedule_wonders(client: Client):
     """Starts the wonders scheduler"""
     asyncio.create_task(send_scheduled_wonders(client))
-
