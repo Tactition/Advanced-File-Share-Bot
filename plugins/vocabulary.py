@@ -66,39 +66,70 @@ def fetch_daily_word() -> tuple:
             messages=[
                 {
                     "role": "system",
-                    "content": "Generate useful English vocabulary for daily conversations with meaning, synonyms, antonyms, and example."
+                    "content": """You are a creative English language expert who specializes in vocabulary and talk like a professional influential Figures. Generate vocabulary content with this EXACT format:
+
+✨ Level Up Your Lexicon! ✨
+<b>[Word]</b>
+(Meaning): [Casual definition with emoji!] 
+
+Think: [Relatable example situation]
+
+Synonyms :
+[Word1]: [Fun explanation with example]
+[Word2]: [Different angle explanation]
+[Word3]: [Unique perspective]
+
+Word Opposites (Flip the Script! 🔄):
+[Antonym1]: [Snappy description] [emoji]
+[Antonym2]: [Creative contrast] [emoji]
+[Antonym3]: [Unexpected opposite] [emoji]
+
+<b>See It In Action!</b> 🎬
+"[Engaging example sentence]" [Relevant emoji]
+
+Ready to become a vocabulary enthusiast yourself? 😉
+Want more wonders? Join ➡️ @Excellerators"""
                 },
                 {
                     "role": "user",
-                    "content": "Generate a random vocabulary word with: 1. Word, 2. Meaning, 3. 2-3 synonyms, 4. 2-3 antonyms, 5. Example usage. Use bold headings."
+                    "content": "Generate a fresh vocabulary entry in the specified format. Make it contemporary and conversational."
                 }
             ],
             model="llama3-70b-8192",
-            temperature=1.2,
-            max_tokens=300
+            temperature=1.3,
+            max_tokens=400,
+            stream=False
         )
         
         word_content = response.choices[0].message.content
         word_hash = hashlib.md5(word_content.encode()).hexdigest()
         
-        return (
-            f"📚 **Daily Vocabulary Boost**\n\n{word_content}\n\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            "Learn More @Excellerators",
-            word_hash
-        )
+        return (word_content, word_hash)
         
     except Exception as e:
         logger.error(f"Groq API error: {e}")
         return (
-            "📖 **Word of the Day**\n\n"
-            "**Word:** Resilient\n"
-            "**Meaning:** Able to recover quickly from difficulties\n"
-            "**Synonyms:** Tough, durable, robust\n"
-            "**Antonyms:** Fragile, vulnerable, weak\n"
-            "**Example:** Despite setbacks, she remained resilient.\n\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            "Learn More @Excellerators",
+            """✨ Level Up Your Lexicon! ✨
+Enthusiast 
+(Meaning): Someone who's absolutely fired up and deeply passionate about a specific hobby, interest, or subject! 🔥
+
+Think: That friend who lives and breathes video games? The person who can talk about their favorite band for hours? Yep, they're enthusiasts!
+
+Synonyms :
+Fanatic: Going beyond just liking something! Think super dedicated.
+Devotee: Heart and soul invested! Shows a deep commitment.
+Aficionado: Not just a fan, but a knowledgeable one! Knows the ins and outs.
+
+Word Opposites (Flip the Script! 🔄):
+Skeptic: Hmm, I'm not so sure... Questions everything! 🤔
+Critic: Always finding something to pick apart. 🤨
+Indifferent: Meh. Doesn't care either way. 😴
+
+See It In Action! 🎬
+"The release of the new sci-fi series drew in a massive crowd of enthusiasts, eager to explore its intricate world and compelling characters." 🚀🌌
+
+Ready to become a vocabulary enthusiast yourself? 😉
+Want more word wonders? ➡️ @Excellerators""",
             f"fallback_{time.time()}"
         )
 
@@ -108,31 +139,30 @@ async def send_scheduled_vocabulary(bot: Client):
     
     while True:
         now = datetime.now(tz)
-        # Set your desired schedule (8 AM and 8 PM IST)
         target_times = [
-            now.replace(hour=8, minute=0, second=0, microsecond=0),
-            now.replace(hour=20, minute=0, second=0, microsecond=0)
+            now.replace(hour=11, minute=30, second=0, microsecond=0),  # 11:30 AM IST
+            now.replace(hour=19, minute=30, second=0, microsecond=0)  # 7:30 PM IST
         ]
         
         valid_times = [t for t in target_times if t > now]
         next_time = min(valid_times) if valid_times else target_times[0] + timedelta(days=1)
         
         sleep_seconds = (next_time - now).total_seconds()
-        logger.info(f"Next vocabulary at {next_time.strftime('%H:%M IST')}")
+        logger.info(f"Next vocab at {next_time.strftime('%H:%M IST')}")
         await asyncio.sleep(sleep_seconds)
 
         try:
             sent_ids = await load_sent_words()
             word_message, word_id = fetch_daily_word()
             
-            # Retry for unique word
+            # Retry for unique word (max 3 attempts)
             retry = 0
-            while word_id in sent_ids and retry < 5:
+            while word_id in sent_ids and retry < 3:
                 word_message, word_id = fetch_daily_word()
                 retry += 1
             
             await bot.send_message(
-                chat_id=VOCAB_CHANNEL,  # Add to config.py
+                chat_id=VOCAB_CHANNEL,
                 text=word_message,
                 disable_web_page_preview=True
             )
@@ -141,12 +171,15 @@ async def send_scheduled_vocabulary(bot: Client):
             
             await bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"📚 Vocabulary sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {word_id}"
+                text=f"📖 Vocab sent at {datetime.now(tz).strftime('%H:%M IST')}\nID: {word_id}"
             )
             
         except Exception as e:
             logger.exception("Vocabulary broadcast failed:")
-
+            await bot.send_message(
+                chat_id=LOG_CHANNEL,
+                text=f"⚠️ Vocab send failed: {str(e)[:500]}"
+            )
 @Client.on_message(filters.command('vocab') & filters.user(ADMINS))
 async def instant_vocab_handler(client, message: Message):
     try:
