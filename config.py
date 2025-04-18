@@ -13,9 +13,9 @@ def is_enabled(value, default):
         return default
 
 # Bot Information
-API_ID = int(environ.get("API_ID", "26205215"))
-API_HASH = environ.get("API_HASH", "d4d9b7bce6d76bec759e404ecf2c3ebf")
-BOT_TOKEN = environ.get("BOT_TOKEN", "7235447334:AAFZ4rBUNV6wsD2hvMB3zXxlU7M9GFj7dGM")
+API_ID = int(environ.get("API_ID", ""))
+API_HASH = environ.get("API_HASH", "")
+BOT_TOKEN = environ.get("BOT_TOKEN", "")
 
 PICS = (environ.get('PICS', 'https://freeimage.host/i/d10VHep')).split() # Bot Start Picture
 ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in environ.get('ADMINS', '1178233430').split()]
@@ -49,14 +49,7 @@ AUTH_CHANNEL = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('
 USER_REPLY_TEXT = "❌Don't send me messages! You Can't Use Me Unless You Have The Special Link To Access My Content."
 
 BOT_ID = int(environ.get("BOT_ID", "7235447334")) # bot id from https://api.telegram.org/bot<YourBotToken>/getMe
-QUOTE_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002598222123"))  # replace with your actual quotes channel ID
-QUOTE_DELETE_DELAY = int(os.environ.get("QUOTE_DELETE_DELAY", "14400"))  # delay in seconds
-DELETION_INTERVAL = float(os.environ.get("DELETION_INTERVAL", "1"))  # seconds between scheduling each deletion task means how many seconds wait should be there to delete the message in bot pm
-ARTICLE_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002583776397"))  # replace with your actual quotes channel ID
-FACTS_CHANNEL = int(environ.get("QUOTE_CHANNEL" ,"-1002625104089"))  # replace with your actual Facts channel ID
-QUIZ_CHANNEL = int(environ.get("QUIZ_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
-VOCAB_CHANNEL = int(environ.get("VOCAB_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
-WONDERS_CHANNEL = int(environ.get("WONDERS_CHANNEL" ,"-1002625104089"))  # replace with your actual Trivia channel ID
+
 
 
 # Channel Information
